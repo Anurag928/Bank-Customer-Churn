@@ -1,5 +1,5 @@
 .env
 __pycache__/
 *.pyc
-predictions.db
-*.pkl 
+*.pkl
+env/ 
