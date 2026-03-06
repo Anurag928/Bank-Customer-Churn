@@ -1,5 +1,33 @@
-.env
+# Python
 __pycache__/
-*.pyc
-*.pkl
-env/ 
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environment
+.venv/
+venv/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local databases and runtime artifacts
+instance/
+*.db
+history.csv
+
+# Model and training artifacts
+model/*.pkl
+
+# Node
+node_modules/
+
+# OS/Editor
+.vscode/
+.DS_Store
+Thumbs.db

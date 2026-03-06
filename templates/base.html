@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Bank Customer Churn Prediction{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&family=Poppins:wght@600;700;800&family=Space+Mono:wght@700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <script>
+        (function () {
+            const savedTheme = localStorage.getItem('theme');
+            const initialTheme = savedTheme || 'dark';
+            document.documentElement.setAttribute('data-theme', initialTheme);
+            const reduceMotion = localStorage.getItem('reduceMotion') === 'true';
+            if (reduceMotion) {
+                document.documentElement.setAttribute('data-reduce-motion', 'true');
+            }
+        })();
+    </script>
+</head>
+<body data-page="{% block page_id %}generic{% endblock %}" data-user-name="{{ current_user.username if current_user.is_authenticated else '' }}" data-user-email="{{ current_user.email if current_user.is_authenticated else '' }}">
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="noise"></div>
+
+    {% if show_nav %}
+    <nav class="app-nav glass navbar" aria-label="Main navigation">
+        <a class="brand" href="{{ url_for('home') }}">
+            <span class="brand-mark"><i class="fa-solid fa-chart-line"></i></span>
+            <span class="brand-copy">
+                <strong class="brand-text">RetentionOS</strong>
+                <small>Churn Intelligence</small>
+            </span>
+        </a>
+
+        <button class="menu-toggle" id="menuToggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNavPanel">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+
+        <div class="nav-links" id="desktopNavLinks">
+            <a class="{% if request.endpoint == 'home' %}active{% endif %}" href="{{ url_for('home') }}">Home</a>
+            <a class="{% if request.endpoint == 'predict' %}active{% endif %}" href="{{ url_for('predict') }}">Predict</a>
+            <a class="{% if request.endpoint == 'history' %}active{% endif %}" href="{{ url_for('history') }}">History</a>
+        </div>
+
+        <div class="nav-actions">
+            <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle color theme">
+                <i class="fa-solid fa-sun" data-theme-icon></i>
+            </button>
+            <div class="user-menu" id="userMenu">
+                <button type="button" class="user-chip" id="userMenuTrigger" title="{{ current_user.email }}" aria-expanded="false" aria-controls="userDropdown">
+                    <span class="user-chip__avatar" id="navAvatar">{{ (current_user.username[:1] if current_user.is_authenticated else 'U')|upper }}</span>
+                    <span class="user-chip__name">{{ current_user.username }}</span>
+                    <i class="fa-solid fa-chevron-down user-chip__caret"></i>
+                </button>
+                <div class="user-dropdown glass" id="userDropdown" role="menu">
+                    <p class="user-dropdown__meta">{{ current_user.email }}</p>
+                    <a role="menuitem" href="{{ url_for('profile') }}"><i class="fa-regular fa-user"></i> Account</a>
+                    <a role="menuitem" href="{{ url_for('history') }}"><i class="fa-regular fa-clock"></i> Recent Predictions</a>
+                </div>
+            </div>
+            <a class="btn btn-outline btn-sm nav-logout" href="{{ url_for('logout') }}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </div>
+
+        <div class="mobile-nav-panel" id="mobileNavPanel">
+            <a class="{% if request.endpoint == 'home' %}active{% endif %}" href="{{ url_for('home') }}">Home</a>
+            <a class="{% if request.endpoint == 'predict' %}active{% endif %}" href="{{ url_for('predict') }}">Predict</a>
+            <a class="{% if request.endpoint == 'history' %}active{% endif %}" href="{{ url_for('history') }}">History</a>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="page-wrap {% if show_nav %}with-nav{% endif %}">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <section class="flash-stack">
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        </section>
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    {% if show_nav %}
+    <footer class="app-footer">
+        <p>&copy; 2026 Bank Churn Predictor</p>
+        <div class="app-footer__links">
+            <a href="#">Terms</a>
+            <a href="#">Privacy</a>
+            <a href="#contact">Contact</a>
+        </div>
+    </footer>
+    {% endif %}
+
+    {% block extra_scripts %}{% endblock %}
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
