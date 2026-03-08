@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block page_id %}analyst-reports{% endblock %}
+{% block shell_title %}Reports{% endblock %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<section class="home-section reveal">
+    <div class="dash-kpi-grid">
+        <article class="dash-kpi-card glass-subcard"><p class="kpi-label">Total Predictions</p><p class="kpi-value stat-number">{{ report_data.total_predictions }}</p></article>
+        <article class="dash-kpi-card glass-subcard"><p class="kpi-label">High Risk</p><p class="kpi-value stat-number text-danger">{{ report_data.high_risk_predictions }}</p></article>
+        <article class="dash-kpi-card glass-subcard"><p class="kpi-label">Low Risk</p><p class="kpi-value stat-number">{{ report_data.low_risk_predictions }}</p></article>
+    </div>
+</section>
+<section class="glass-card section-card reveal">
+    <div class="section-header"><div><h2>Top Report Rows</h2></div></div>
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Customer ID</th><th>Result</th><th>Risk</th></tr></thead><tbody>{% for row in rows %}<tr><td>{{ row.date_display }}</td><td>{{ row.CustomerId }}</td><td>{{ row.prediction }}</td><td>{{ row.probability }}%</td></tr>{% else %}<tr><td colspan="4" class="muted">No report rows available.</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% endblock %}

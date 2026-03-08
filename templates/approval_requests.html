@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block page_id %}approval-requests{% endblock %}
+{% block shell_title %}Approval Requests{% endblock %}
+{% block title %}Approval Requests{% endblock %}
+{% block content %}
+<section class="glass-card section-card reveal">
+    <div class="section-header"><div><p class="eyebrow">Approval Queue</p><h1>Approval Requests</h1></div></div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead><tr><th>Full Name</th><th>Email</th><th>Role</th><th>Official ID</th><th>Request Date</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for row in requests_data %}
+                <tr>
+                    <td>{{ row.username }}</td>
+                    <td>{{ row.email }}</td>
+                    <td>{{ row.role }}</td>
+                    <td>{{ row.official_id }}</td>
+                    <td>{{ row.request_date }}</td>
+                    <td><span class="badge badge-{{ row.status|lower }}">{{ row.status }}</span></td>
+                    <td>
+                        {% if row.status|lower == 'pending' %}
+                        <form method="POST" action="{{ url_for('approve_request', user_id=row.id) }}" style="display:inline-block;"><button class="btn btn-primary btn-sm" type="submit">Approve</button></form>
+                        <form method="POST" action="{{ url_for('reject_request', user_id=row.id) }}" style="display:inline-block;"><button class="btn btn-outline btn-sm" type="submit">Reject</button></form>
+                        {% else %}
+                        <span class="muted">Processed</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="muted">No registration requests available.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

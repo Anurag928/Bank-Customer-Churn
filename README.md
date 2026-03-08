@@ -1,12 +1,10 @@
 # Bank Customer Churn Prediction - Phase 2
 
-Production-ready Phase 2 app with Flask backend, SQLite, real Google OAuth 2.0 login, XGBoost inference, profile stats, and Vercel deployment support.
+Production-ready Phase 2 app with Flask backend, local email/password auth, XGBoost inference, profile stats, and Vercel deployment support.
 
 ## Features
 
 - Email/password auth with hashed passwords
-- Real Google OAuth 2.0 Authorization Code Flow (Authlib)
-- User-linked identities via `auth_providers` and `google_sub`
 - Protected routes: Home, Predict, History, Profile
 - Informational Home (hero + explanation + realistic FAQs + contact)
 - Prediction page with real XGBoost inference
@@ -17,13 +15,18 @@ Production-ready Phase 2 app with Flask backend, SQLite, real Google OAuth 2.0 l
 ## Required environment variables
 
 - `SECRET_KEY`
-- `DATABASE_URL`
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `BASE_URL`
+- `MONGODB_URI`
+- `MONGODB_DB_NAME` (optional, default `bank_churn_app`)
 - `DATASET_PATH` (optional, default `data/bank_churn.csv`)
 - `MODEL_PATH` (optional, default `model/xgb_model.pkl`)
-- `CSV_LOG_PATH` (optional, default `history.csv`)
+- `CSV_LOG_PATH` (optional, default `prediction_history.csv`)
+- `MAIL_SERVER` (optional, default `smtp.gmail.com`)
+- `MAIL_PORT` (optional, default `587`)
+- `MAIL_USE_TLS` (optional, default `true`)
+- `MAIL_USERNAME` (set to `bankchurnpredictor@gmail.com`)
+- `MAIL_PASSWORD` (Gmail app password)
+- `MAIL_DEFAULT_SENDER` (optional, defaults to `MAIL_USERNAME`)
+- `ADMIN_EMAIL` (set to `gudaanurag6@gmail.com`)
 
 ## Local setup
 
@@ -32,7 +35,7 @@ Production-ready Phase 2 app with Flask backend, SQLite, real Google OAuth 2.0 l
    ```bash
    pip install -r requirements.txt
    ```
-3. Copy `.env.example` to `.env` and fill values.
+3. Create a `.env` file in the project root and fill the required values.
 4. Train model:
    ```bash
    python train_model.py
@@ -41,15 +44,6 @@ Production-ready Phase 2 app with Flask backend, SQLite, real Google OAuth 2.0 l
    ```bash
    python app.py
    ```
-
-## Google OAuth setup
-
-Create OAuth client in Google Cloud Console and configure redirect URIs:
-
-- Local: `http://127.0.0.1:5000/auth/google/callback`
-- Vercel: `https://<your-vercel-domain>/auth/google/callback`
-
-Set `BASE_URL` to your current environment base URL.
 
 ## Vercel deployment
 

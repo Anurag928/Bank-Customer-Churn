@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block page_id %}admin-records{% endblock %}
+{% block shell_title %}Prediction Records{% endblock %}
+{% block title %}Prediction Records{% endblock %}
+{% block content %}
+<section class="glass-card section-card reveal">
+    <div class="section-header"><div><h1>Prediction Records</h1><p class="muted">System-wide prediction audit table.</p></div></div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead><tr><th>Date</th><th>Customer ID</th><th>Result</th><th>Risk</th><th>Entered By</th></tr></thead>
+            <tbody>
+                {% for row in rows %}
+                <tr><td>{{ row.date_display }}</td><td>{{ row.CustomerId }}</td><td>{{ row.prediction }}</td><td><span class="badge {{ 'high' if row.probability >= 70 else 'low' }}">{{ row.probability }}%</span></td><td>{{ row.entered_by }}</td></tr>
+                {% else %}
+                <tr><td colspan="5" class="muted">No records found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

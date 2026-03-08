@@ -3,95 +3,44 @@
 {% block title %}Sign Up | Bank Customer Churn Prediction{% endblock %}
 {% block content %}
 <section class="auth-split reveal">
-    <button type="button" class="theme-toggle auth-theme-toggle" data-theme-toggle aria-label="Toggle color theme">
-        <i class="fa-solid fa-sun" data-theme-icon></i>
-    </button>
+    <button type="button" class="theme-toggle auth-theme-toggle" data-theme-toggle aria-label="Toggle color theme"><i class="fa-solid fa-sun" data-theme-icon></i></button>
 
     <aside class="auth-visual glass-card" aria-hidden="true">
         <div class="auth-wave auth-wave--one"></div>
         <div class="auth-wave auth-wave--two"></div>
         <div class="auth-particles"></div>
         <div class="auth-visual__content">
-            <p class="eyebrow">Launch Workspace</p>
-            <h1>Build your retention command center in minutes.</h1>
-            <p>Create an account and start predicting churn with explainable insights and action-driven recommendations.</p>
+            <p class="eyebrow">Employee / Analyst Registration</p>
+            <h1>Request secure access to churn intelligence.</h1>
+            <p>Sign up with your official organizational ID. Your request will stay pending until admin approval.</p>
         </div>
     </aside>
 
     <article class="auth-card glass-card">
-        <div class="auth-card__head">
-            <h2>Sign Up</h2>
-            <p class="muted">Create your secure churn analytics account.</p>
-        </div>
-
+        <div class="auth-card__head"><h2>Sign Up</h2><p class="muted">Only Employee and Analyst roles can register here.</p></div>
         <form method="POST" class="form-grid auth-form" id="signupForm" novalidate>
-            <div class="field-group input-field has-icon">
-                <i class="fa-regular fa-user field-icon"></i>
-                <input id="username" name="username" type="text" placeholder=" " required autocomplete="name" />
-                <label for="username">Full Name</label>
-                <small class="field-hint" data-error-for="username"></small>
-            </div>
-
-            <div class="field-group input-field has-icon">
-                <i class="fa-regular fa-envelope field-icon"></i>
-                <input id="email" name="email" type="email" placeholder=" " required autocomplete="email" />
-                <label for="email">Email</label>
-                <small class="field-hint" data-error-for="email"></small>
-            </div>
-
-            <div class="field-group input-field password-group has-icon">
-                <i class="fa-solid fa-lock field-icon"></i>
-                <input id="password" name="password" type="password" placeholder=" " minlength="8" required autocomplete="new-password" />
-                <label for="password">Password</label>
-                <button class="password-toggle" type="button" data-toggle-password="password" aria-label="Show password">
-                    <i class="fa-regular fa-eye"></i>
-                </button>
-                <small class="field-hint" data-error-for="password"></small>
-                <div class="password-strength progress-bar" aria-live="polite">
-                    <div class="password-strength__track" aria-hidden="true">
-                        <span class="password-strength__fill" id="passwordStrengthFill"></span>
-                    </div>
-                    <small class="field-hint strength-hint" id="passwordStrengthHint">Use 8+ chars with upper, lower, number, and symbol.</small>
+            <div class="field-group input-field has-icon"><i class="fa-regular fa-user field-icon"></i><input id="username" name="username" type="text" placeholder=" " required /><label for="username">Full Name</label><small class="field-hint" data-error-for="username"></small></div>
+            <div class="field-group input-field has-icon"><i class="fa-regular fa-envelope field-icon"></i><input id="email" name="email" type="email" placeholder=" " required /><label for="email">Official Email</label><small class="field-hint" data-error-for="email"></small></div>
+            <div class="field-group role-picker-group">
+                <label class="role-picker__label" for="role">Role Selection</label>
+                <div class="role-picker" id="rolePicker" role="group" aria-label="Role selection">
+                    <button type="button" class="role-picker__choice" data-role-choice="Employee"><i class="fa-solid fa-briefcase"></i> Employee</button>
+                    <button type="button" class="role-picker__choice" data-role-choice="Analyst"><i class="fa-solid fa-chart-simple"></i> Analyst</button>
                 </div>
+                <select id="role" name="role" required class="role-picker-native" aria-hidden="true" tabindex="-1">
+                    <option value="">Choose role</option>
+                    <option value="Employee">Employee</option>
+                    <option value="Analyst">Analyst</option>
+                </select>
+                <small class="field-hint" data-error-for="role"></small>
             </div>
-
-            <div class="field-group input-field password-group has-icon">
-                <i class="fa-solid fa-key field-icon"></i>
-                <input id="confirm_password" name="confirm_password" type="password" placeholder=" " minlength="8" required autocomplete="new-password" />
-                <label for="confirm_password">Confirm Password</label>
-                <button class="password-toggle" type="button" data-toggle-password="confirm_password" aria-label="Show password">
-                    <i class="fa-regular fa-eye"></i>
-                </button>
-                <small class="field-hint" data-error-for="confirm_password"></small>
-            </div>
-
-            <div class="terms-row">
-                <label class="terms-check" for="acceptTerms">
-                    <input id="acceptTerms" name="accept_terms" type="checkbox" />
-                    <span>I agree to Terms and Privacy</span>
-                </label>
-                <small class="field-hint" data-error-for="acceptTerms"></small>
-            </div>
-
-            <button class="btn btn-primary btn-lg" type="submit"><i class="fa-solid fa-user-plus"></i> Create Account</button>
-            <p class="auth-switch muted">Already have an account? <a class="text-link" href="{{ url_for('signin') }}">Sign in</a></p>
+            <div class="field-group input-field has-icon"><i class="fa-solid fa-id-badge field-icon"></i><input id="officialId" name="official_id" type="text" placeholder=" " required /><label for="officialId">Official ID (AEMP101 / AANA101)</label><small class="field-hint" data-error-for="officialId"></small></div>
+            <div class="field-group input-field password-group has-icon"><i class="fa-solid fa-lock field-icon"></i><input id="password" name="password" type="password" placeholder=" " minlength="8" required /><label for="password">Password</label><button class="password-toggle" type="button" data-toggle-password="password" aria-label="Show password"><i class="fa-regular fa-eye"></i></button><small class="field-hint" data-error-for="password"></small></div>
+            <div class="field-group input-field password-group has-icon"><i class="fa-solid fa-key field-icon"></i><input id="confirm_password" name="confirm_password" type="password" placeholder=" " minlength="8" required /><label for="confirm_password">Confirm Password</label><button class="password-toggle" type="button" data-toggle-password="confirm_password" aria-label="Show password"><i class="fa-regular fa-eye"></i></button><small class="field-hint" data-error-for="confirm_password"></small></div>
+            <div class="terms-row"><label class="terms-check" for="acceptTerms"><input id="acceptTerms" name="accept_terms" type="checkbox" /><span>I agree to Terms and Privacy</span></label><small class="field-hint" data-error-for="acceptTerms"></small></div>
+            <button class="btn btn-primary btn-lg" type="submit"><i class="fa-solid fa-user-plus"></i> Submit Request</button>
+            <p class="auth-switch muted">Already have an account? <a class="text-link" href="{{ url_for('signin') }}">Sign in</a> | <a class="text-link" href="{{ url_for('admin_login') }}">Admin login</a></p>
         </form>
-
-        {% if google_oauth_enabled %}
-        <div class="auth-divider" role="separator" aria-label="or">
-            <span>or continue with google</span>
-        </div>
-
-        <a class="btn btn-google btn-lg" href="{{ url_for('auth_google', flow='signup') }}" data-google-auth="signup">
-            <i class="fa-brands fa-google"></i>
-            Continue with Google
-        </a>
-        {% endif %}
-
     </article>
 </section>
-{% endblock %}
-
-{% block extra_scripts %}
-<script type="module" src="{{ url_for('static', filename='js/firebase-auth.js') }}"></script>
 {% endblock %}

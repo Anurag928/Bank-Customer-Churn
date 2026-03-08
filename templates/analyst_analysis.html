@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block page_id %}analyst-analysis{% endblock %}
+{% block shell_title %}Prediction Analysis{% endblock %}
+{% block title %}Prediction Analysis{% endblock %}
+{% block content %}
+<section class="glass-card section-card reveal">
+    <div class="section-header"><div><h1>Prediction Analysis</h1><p class="muted">Cross-team prediction result analysis.</p></div></div>
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Customer ID</th><th>Prediction</th><th>Probability</th><th>Risk Level</th></tr></thead><tbody>{% for row in rows %}<tr><td>{{ row.date_display }}</td><td>{{ row.CustomerId }}</td><td>{{ row.prediction }}</td><td>{{ row.probability }}%</td><td><span class="badge {{ 'high' if row.probability >= 70 else 'low' }}">{{ row.risk_level }}</span></td></tr>{% else %}<tr><td colspan="5" class="muted">No prediction data found.</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% endblock %}

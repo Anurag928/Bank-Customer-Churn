@@ -1,69 +1,13 @@
 {% extends 'base.html' %}
 {% block page_id %}history{% endblock %}
-{% block title %}History | Bank Customer Churn Prediction{% endblock %}
+{% block shell_title %}My Predictions{% endblock %}
+{% block title %}My Predictions{% endblock %}
 {% block content %}
 <section class="glass-card section-card reveal">
-    <div class="section-header">
-        <div>
-            <p class="eyebrow">Prediction History</p>
-            <h1>Risk Timeline and Prediction Audit</h1>
-        </div>
-        <button class="btn btn-outline" id="exportCsvBtn" type="button"><i class="fa-solid fa-file-export"></i> Export CSV</button>
-    </div>
-
-    <div class="toolbar glass-subcard">
-        <div class="search-box">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input id="historySearch" type="text" placeholder="Search by score, age, balance, or outcome" />
-        </div>
-        <div class="chip-group" id="historyFilterChips" role="group" aria-label="Filter predictions">
-            <button class="chip active" type="button" data-filter="all">All</button>
-            <button class="chip" type="button" data-filter="low">Low Risk</button>
-            <button class="chip" type="button" data-filter="medium">Medium Risk</button>
-            <button class="chip" type="button" data-filter="high">High Risk</button>
-        </div>
-        <select id="historySort">
-            <option value="latest">Latest First</option>
-            <option value="highrisk">Highest Risk</option>
-            <option value="oldest">Oldest First</option>
-        </select>
-    </div>
-
-    <div class="table-wrap history-table-wrap">
-        <table id="historyTable" class="data-table">
-            <thead>
-                <tr>
-                    <th>Date/Time</th>
-                    <th>Customer Snapshot</th>
-                    <th>Prediction</th>
-                    <th>Probability</th>
-                    <th>Risk Level</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-
-    <div id="historyEmpty" class="history-empty">
-        <div class="empty-illustration" aria-hidden="true">
-            <span></span><span></span><span></span>
-        </div>
-        <h3>No prediction history yet</h3>
-        <p class="muted">Run your first prediction and start building a retention intelligence timeline.</p>
-        <a class="btn btn-primary" href="{{ url_for('predict') }}"><i class="fa-solid fa-wand-magic-sparkles"></i> Go to Predict</a>
-    </div>
+    <div class="section-header"><div><p class="eyebrow">My Predictions</p><h1>Saved Prediction Records</h1></div><button class="btn btn-outline" id="exportCsvBtn" type="button"><i class="fa-solid fa-file-export"></i> Export CSV</button></div>
+    <div class="table-wrap history-table-wrap"><table id="historyTable" class="data-table"><thead><tr><th>Date/Time</th><th>Customer ID</th><th>Prediction</th><th>Probability</th><th>Risk Level</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+    <div id="historyEmpty" class="history-empty"><h3>No prediction history yet</h3><p class="muted">Run your first prediction to start tracking outcomes.</p><a class="btn btn-primary" href="{{ url_for('predict') }}">Go to Predict</a></div>
 </section>
-
-<div class="modal-backdrop" id="historyModal" aria-hidden="true">
-    <article class="modal-card glass-card" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle">
-        <div class="section-header">
-            <h3 id="historyModalTitle">Prediction Details</h3>
-            <button class="btn btn-outline btn-sm" id="closeHistoryModal" type="button">Close</button>
-        </div>
-        <div id="historyModalBody" class="modal-body muted"></div>
-    </article>
-</div>
-
+<div class="modal-backdrop" id="historyModal" aria-hidden="true"><article class="modal-card glass-card" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle"><div class="section-header"><h3 id="historyModalTitle">Prediction Details</h3><button class="btn btn-outline btn-sm" id="closeHistoryModal" type="button">Close</button></div><div id="historyModalBody" class="modal-body muted"></div></article></div>
 <script id="historyData" type="application/json">{{ predictions_json|safe }}</script>
 {% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block page_id %}admin-dashboard{% endblock %}
+{% block shell_title %}Admin Dashboard{% endblock %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<section class="home-section reveal">
+    <div class="dash-kpi-grid">
+        <article class="dash-kpi-card glass-subcard"><p class="kpi-label">Total Users</p><p class="kpi-value stat-number">{{ total_users }}</p></article>
+        <article class="dash-kpi-card glass-subcard"><p class="kpi-label">Total Employees</p><p class="kpi-value stat-number">{{ total_employees }}</p></article>
+        <article class="dash-kpi-card glass-subcard"><p class="kpi-label">Total Analysts</p><p class="kpi-value stat-number">{{ total_analysts }}</p></article>
+        <article class="dash-kpi-card glass-subcard"><p class="kpi-label">Total Predictions</p><p class="kpi-value stat-number">{{ total_predictions }}</p></article>
+        <article class="dash-kpi-card glass-subcard"><p class="kpi-label">High Risk Predictions</p><p class="kpi-value stat-number text-danger">{{ high_risk_predictions }}</p></article>
+    </div>
+</section>
+
+<section class="home-section glass-card section-card reveal">
+    <div class="section-header"><div><p class="eyebrow">Recent Activity</p><h2>Latest Prediction Records</h2></div></div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead><tr><th>Customer ID</th><th>Prediction Result</th><th>Risk Score</th><th>Entered By</th><th>Date / Time</th></tr></thead>
+            <tbody>
+                {% for row in recent_activity %}
+                <tr><td>{{ row.CustomerId }}</td><td>{{ row.prediction }}</td><td>{{ row.risk_score }}%</td><td>{{ row.entered_by }}</td><td>{{ row.date_time }}</td></tr>
+                {% else %}
+                <tr><td colspan="5" class="muted">No prediction records yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

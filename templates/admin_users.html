@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block page_id %}admin-users{% endblock %}
+{% block shell_title %}Users{% endblock %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<section class="glass-card section-card reveal">
+    <div class="section-header"><div><h1>User Directory</h1><p class="muted">Admin, Employee, and Analyst accounts across all statuses.</p></div></div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead><tr><th>Full Name</th><th>Email</th><th>Role</th><th>Official ID</th><th>Status</th><th>Last Login</th></tr></thead>
+            <tbody>
+                {% for user in user_rows %}
+                <tr>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.role }}</td>
+                    <td>{{ user.official_id }}</td>
+                    <td><span class="badge badge-{{ user.status|lower }}">{{ user.status }}</span></td>
+                    <td>{{ user.last_login_display }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="muted">No users found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

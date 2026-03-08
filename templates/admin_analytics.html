@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block page_id %}admin-analytics{% endblock %}
+{% block shell_title %}Analytics Overview{% endblock %}
+{% block title %}Analytics Overview{% endblock %}
+{% block content %}
+<section class="glass-card section-card reveal">
+    <div class="section-header"><div><h1>Analytics Overview</h1><p class="muted">Prediction trends and operational insights.</p></div></div>
+
+    <div class="analytics-kpi-grid">
+        <article class="analytics-kpi-card glass-subcard"><p class="kpi-label">Recent Predictions</p><p id="adminKpiTotal" class="kpi-value stat-number">0</p></article>
+        <article class="analytics-kpi-card glass-subcard"><p class="kpi-label">High Risk Share</p><p id="adminKpiHighShare" class="kpi-value stat-number">0%</p></article>
+        <article class="analytics-kpi-card glass-subcard"><p class="kpi-label">Most Active User</p><p id="adminKpiTopUser" class="kpi-value">-</p></article>
+    </div>
+
+    <div class="analytics-grid">
+        <article class="info-card glass-subcard">
+            <h3>Prediction Trend</h3>
+            <p class="muted">Volume by date (latest points)</p>
+            <div id="adminTrendChart" class="viz-list"></div>
+        </article>
+
+        <article class="info-card glass-subcard">
+            <h3>Risk Split</h3>
+            <p class="muted">High vs Low risk distribution</p>
+            <div class="risk-stack">
+                <div class="risk-track" aria-label="High and low risk distribution">
+                    <span id="adminRiskHighBar" class="risk-high" style="width: 0%"></span>
+                    <span id="adminRiskLowBar" class="risk-low" style="width: 0%"></span>
+                </div>
+                <div id="adminRiskLegend" class="risk-legend muted">No risk data yet.</div>
+            </div>
+        </article>
+
+        <article class="info-card glass-subcard analytics-wide">
+            <h3>Employee Activity</h3>
+            <p class="muted">Top contributors by prediction entries</p>
+            <div id="adminActivityChart" class="viz-list"></div>
+        </article>
+    </div>
+</section>
+
+<script id="adminAnalyticsData" type="application/json">{{ analytics_json|safe }}</script>
+{% endblock %}

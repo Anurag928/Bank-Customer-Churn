@@ -1,162 +1,37 @@
 {% extends 'base.html' %}
 {% block page_id %}profile{% endblock %}
-{% block title %}Profile | Bank Customer Churn Prediction{% endblock %}
+{% block shell_title %}Profile{% endblock %}
+{% block title %}Profile{% endblock %}
 {% block content %}
-<section class="profile-dashboard reveal">
-    <header class="profile-header">
+<section class="glass-card section-card reveal profile-shell">
+    <div class="section-header profile-heading">
         <div>
-            <p class="eyebrow">Dashboard</p>
-            <h1>Customer Retention Control Center</h1>
+            <p class="eyebrow">Profile</p>
+            <h1>Account Profile</h1>
+            <p class="muted">Manage your account identity and security settings.</p>
         </div>
-        <div class="profile-header__actions">
-            <button class="chip" type="button"><i class="fa-solid fa-filter"></i> Last 30 days</button>
-            <button class="btn btn-outline" id="openProfileModal" type="button"><i class="fa-solid fa-pen"></i> Edit Profile</button>
-        </div>
-    </header>
-
-    <div class="profile-top-grid">
-        <article class="glass-card section-card profile-card">
-            <h2>Customer Info</h2>
-            <div class="profile-user">
-                <div class="profile-avatar" id="profileAvatar">{{ (current_user.username[:1] if current_user.username else 'U')|upper }}</div>
-                <div class="profile-user__meta">
-                    <strong>{{ current_user.username }}</strong>
-                    <span>{{ current_user.email }}</span>
-                </div>
-            </div>
-            <div class="profile-info-list">
-                <div><span>Workspace</span><strong>Bank Churn Predictor</strong></div>
-                <div><span>Total Predictions</span><strong id="statTotalPredictions" class="stat-number">{{ total_predictions }}</strong></div>
-                <div><span>Last Result</span><strong id="statLastResult">{{ last_result }}</strong></div>
-            </div>
-        </article>
-
-        <article class="glass-card section-card profile-card profile-risk-card" id="profileRiskCard">
-            <p class="profile-risk-label">Latest Churn Probability</p>
-            <div class="risk-gauge-wrap">
-                <svg class="risk-gauge" viewBox="0 0 140 140" aria-hidden="true">
-                    <circle class="risk-gauge-bg" cx="70" cy="70" r="56"></circle>
-                    <circle class="risk-gauge-fill" id="profileRiskRing" cx="70" cy="70" r="56"></circle>
-                </svg>
-                <p class="profile-risk-percent stat-number" id="profileRiskPercent">0%</p>
-            </div>
-            <span class="badge" id="profileRiskStatus">Low Risk</span>
-        </article>
-
-        <article class="glass-card section-card profile-card recent-prediction-card">
-            <p class="profile-risk-label">Recent Prediction</p>
-            <p class="recent-prediction-value stat-number" id="recentPredictionValue">0.00%</p>
-            <p class="muted">Aligned with latest scored customer record.</p>
-            <div class="profile-stat-inline">
-                <span>Avg Risk</span>
-                <strong id="statAverageRisk" class="stat-number">0%</strong>
-            </div>
-            <div class="profile-stat-inline">
-                <span>Highest Risk</span>
-                <strong id="statHighestRisk" class="stat-number">0%</strong>
-            </div>
-        </article>
     </div>
 
-    <div class="profile-middle-grid">
-        <article class="glass-card section-card profile-card">
-            <h2>Recommendations</h2>
-            <ul class="recommendation-list">
-                <li><i class="fa-solid fa-circle-check"></i> Monitor this customer monthly and send retention offers.</li>
-                <li><i class="fa-solid fa-circle-check"></i> Offer bundled products to increase engagement.</li>
-                <li><i class="fa-solid fa-circle-check"></i> Watch behavior changes that may signal churn risk.</li>
-            </ul>
-        </article>
-
-        <article class="glass-card section-card profile-card">
-            <h2>Insights</h2>
-            <div class="insight-placeholders">
-                <div class="insight-box glass-subcard">
-                    <p class="muted">Risk Momentum</p>
-                    <strong class="stat-number" id="insightRiskMomentum">Stable</strong>
-                </div>
-                <div class="insight-box glass-subcard">
-                    <p class="muted">Most Recent Outcome</p>
-                    <strong id="insightRecentResult">{{ last_result }}</strong>
-                </div>
-                <div class="insight-box glass-subcard">
-                    <p class="muted">Theme</p>
-                    <button class="btn btn-outline btn-sm" id="themeToggleProfile" type="button"><i class="fa-solid fa-circle-half-stroke"></i> Toggle Theme</button>
-                </div>
-            </div>
-            <div class="prefs-row">
-                <span class="muted">Reduce motion</span>
-                <label class="switch">
-                    <input type="checkbox" id="reduceMotionToggle" />
-                    <span class="switch-slider"></span>
-                </label>
-            </div>
-        </article>
-    </div>
-
-    <article class="glass-card section-card profile-card">
-        <div class="section-header">
-            <div>
-                <p class="eyebrow">Prediction History</p>
-                <h2>Recent account scoring records</h2>
-            </div>
-            <a class="btn btn-outline btn-sm" href="{{ url_for('history') }}"><i class="fa-solid fa-table-list"></i> Open Full History</a>
-        </div>
-
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Prediction</th>
-                        <th>Probability</th>
-                        <th>Credit Score</th>
-                        <th>Balance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in all_predictions %}
-                    <tr>
-                        <td>{{ item.date_display or item.date }}</td>
-                        <td>{{ item.prediction }}</td>
-                        <td class="stat-number">{{ item.probability }}%</td>
-                        <td class="stat-number">{{ item.CreditScore }}</td>
-                        <td class="stat-number">{{ item.Balance }}</td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" class="muted">No predictions yet. Run your first prediction to populate this table.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <article class="glass-subcard profile-summary-card">
+        <div class="profile-info-list">
+            <div><span>Full Name</span><strong>{{ current_user.username }}</strong></div>
+            <div><span>Email</span><strong>{{ current_user.email }}</strong></div>
+            <div><span>Role</span><strong><span class="badge badge-soft">{{ current_user.role }}</span></strong></div>
+            <div><span>Official ID</span><strong>{{ current_user.official_id }}</strong></div>
+            <div><span>Account Status</span><strong><span class="badge badge-{{ current_user.status|lower }}">{{ current_user.status }}</span></strong></div>
+            <div class="profile-last-login"><span><i class="fa-regular fa-clock"></i> Last Login</span><strong>{{ last_login_display }}</strong></div>
         </div>
     </article>
-</section>
 
-<div class="modal-backdrop" id="profileModal" aria-hidden="true">
-    <div class="modal-card glass" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
-        <h3 id="profileModalTitle">Edit profile</h3>
-        <p class="muted">Frontend-only demo modal. Profile persistence can be wired next.</p>
-        <form class="form-grid" id="profileEditForm">
-            <div class="field-group input-field">
-                <input id="editUsername" type="text" placeholder=" " value="{{ current_user.username }}" />
-                <label for="editUsername">Username</label>
-            </div>
-            <div class="field-group input-field">
-                <input id="editEmail" type="email" placeholder=" " value="{{ current_user.email }}" />
-                <label for="editEmail">Email</label>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-primary" type="submit">Save</button>
-                <button class="btn btn-outline" id="closeProfileModal" type="button">Close</button>
-            </div>
+    <article class="glass-subcard profile-password-card">
+        <h3>Change Password</h3>
+        <p class="muted profile-password-copy">Use a strong password with uppercase, lowercase, number, and symbol.</p>
+        <form method="POST" class="form-grid profile-password-form">
+            <div class="field-group input-field password-group has-icon"><i class="fa-solid fa-lock field-icon"></i><input id="current_password" name="current_password" type="password" placeholder=" " required /><label for="current_password">Current Password</label></div>
+            <div class="field-group input-field password-group has-icon"><i class="fa-solid fa-key field-icon"></i><input id="new_password" name="new_password" type="password" placeholder=" " required minlength="8" /><label for="new_password">New Password</label></div>
+            <div class="field-group input-field password-group has-icon"><i class="fa-solid fa-shield-halved field-icon"></i><input id="confirm_password" name="confirm_password" type="password" placeholder=" " required minlength="8" /><label for="confirm_password">Confirm New Password</label></div>
+            <button class="btn btn-primary btn-lg profile-update-btn" type="submit"><i class="fa-solid fa-pen"></i> Update Password</button>
         </form>
-    </div>
-</div>
-
-<script id="profilePredictions" type="application/json">{{ recent_predictions|tojson|safe }}</script>
-<script id="profileLastProbability" type="application/json">{{ last_probability|tojson|safe }}</script>
-<script id="profileLastResult" type="application/json">{{ last_result|tojson|safe }}</script>
-<script id="profileTotalPredictions" type="application/json">{{ total_predictions|tojson|safe }}</script>
+    </article>
+</section>
 {% endblock %}

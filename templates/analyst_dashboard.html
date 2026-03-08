@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% block page_id %}analyst-dashboard{% endblock %}
+{% block shell_title %}Analyst Dashboard{% endblock %}
+{% block title %}Analyst Dashboard{% endblock %}
+{% block content %}
+<section class="glass-card section-card reveal analyst-overview-shell">
+    <div class="section-header analyst-header">
+        <div>
+            <h1>Analyst Dashboard Overview</h1>
+            <p class="muted">Live churn intelligence across prediction streams, risk segments, and behavior signals.</p>
+        </div>
+        <div class="analyst-refresh">
+            <span class="badge-soft"><i class="fa-solid fa-signal"></i> Live Insights</span>
+            <button id="analystRefreshBtn" type="button" class="btn btn-outline btn-sm"><i class="fa-solid fa-rotate"></i> Refresh</button>
+            <small id="analystUpdatedAt" class="muted">Updated just now</small>
+        </div>
+    </div>
+
+    <div class="analyst-kpi-grid">
+        <article class="analyst-kpi-card glass-subcard">
+            <div class="analyst-kpi-head"><i class="fa-solid fa-database"></i><span>Total Predictions</span></div>
+            <p id="kpiTotalPredictions" class="analyst-kpi-value">0</p>
+            <small id="kpiTotalPredictionsMeta" class="analyst-kpi-meta muted">Across all prediction records</small>
+        </article>
+        <article class="analyst-kpi-card glass-subcard">
+            <div class="analyst-kpi-head"><i class="fa-regular fa-calendar-check"></i><span>Predictions Generated Today</span></div>
+            <p id="kpiTodayPredictions" class="analyst-kpi-value">0</p>
+            <small id="kpiTodayPredictionsMeta" class="analyst-kpi-meta muted">Vs. last 24 hours</small>
+        </article>
+        <article class="analyst-kpi-card glass-subcard tone-danger">
+            <div class="analyst-kpi-head"><i class="fa-solid fa-triangle-exclamation"></i><span>High Churn Risk</span></div>
+            <p id="kpiHighRisk" class="analyst-kpi-value">0</p>
+            <small id="kpiHighRiskMeta" class="analyst-kpi-meta muted">Risk segment count</small>
+        </article>
+        <article class="analyst-kpi-card glass-subcard tone-warning">
+            <div class="analyst-kpi-head"><i class="fa-solid fa-circle-half-stroke"></i><span>Medium Churn Risk</span></div>
+            <p id="kpiMediumRisk" class="analyst-kpi-value">0</p>
+            <small id="kpiMediumRiskMeta" class="analyst-kpi-meta muted">Risk segment count</small>
+        </article>
+        <article class="analyst-kpi-card glass-subcard tone-success">
+            <div class="analyst-kpi-head"><i class="fa-solid fa-shield-heart"></i><span>Low Churn Risk</span></div>
+            <p id="kpiLowRisk" class="analyst-kpi-value">0</p>
+            <small id="kpiLowRiskMeta" class="analyst-kpi-meta muted">Risk segment count</small>
+        </article>
+        <article class="analyst-kpi-card glass-subcard">
+            <div class="analyst-kpi-head"><i class="fa-solid fa-gauge-high"></i><span>Average Churn Probability</span></div>
+            <p id="kpiAverageProbability" class="analyst-kpi-value">0%</p>
+            <small id="kpiAverageProbabilityMeta" class="analyst-kpi-meta muted">Mean churn risk across all predictions</small>
+        </article>
+    </div>
+
+    <div class="analyst-grid analyst-grid-top">
+        <article class="info-card glass-subcard">
+            <h3>Churn Risk Distribution</h3>
+            <p class="muted">High, medium, and low risk segmentation based on latest predictions.</p>
+            <div class="analyst-donut-layout">
+                <div id="riskDonutChart" class="analyst-donut" role="img" aria-label="Risk distribution chart"></div>
+                <div id="riskDonutLegend" class="analyst-donut-legend"></div>
+            </div>
+        </article>
+
+        <article class="info-card glass-subcard">
+            <h3>Prediction Trend</h3>
+            <p class="muted">Prediction volume over time with rolling latest activity.</p>
+            <div id="predictionTrendMeta" class="analyst-chart-meta muted">No trend change detected yet.</div>
+            <div class="analyst-line-wrap">
+                <svg id="predictionTrendChart" class="analyst-line-chart" viewBox="0 0 640 240" preserveAspectRatio="none" aria-label="Prediction trend chart"></svg>
+            </div>
+        </article>
+    </div>
+
+    <div class="analyst-grid analyst-grid-middle">
+        <article class="info-card glass-subcard">
+            <h3>Feature Impact Insights</h3>
+            <p class="muted">Relative feature influence on churn risk separation (High vs Low segments).</p>
+            <div id="featureImpactChart" class="analyst-impact-list"></div>
+        </article>
+
+        <article class="info-card glass-subcard">
+            <h3>Churn Probability Simulator</h3>
+            <p class="muted">Estimate churn probability for hypothetical customer profiles.</p>
+
+            <form id="churnSimulatorForm" class="analyst-sim-form">
+                <label>Age<input type="number" id="simAge" min="18" max="100" value="40" required></label>
+                <label>Credit Score<input type="number" id="simCreditScore" min="300" max="900" value="650" required></label>
+                <label>Balance<input type="number" id="simBalance" min="0" step="0.01" value="50000" required></label>
+                <label>Tenure<input type="number" id="simTenure" min="0" max="40" value="5" required></label>
+                <label>Has Credit Card
+                    <select id="simHasCard" required>
+                        <option value="1">Yes</option>
+                        <option value="0">No</option>
+                    </select>
+                </label>
+                <label>Is Active Member
+                    <select id="simIsActive" required>
+                        <option value="1">Yes</option>
+                        <option value="0">No</option>
+                    </select>
+                </label>
+                <label>Estimated Salary<input type="number" id="simSalary" min="0" step="0.01" value="60000" required></label>
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-flask"></i> Analyze Churn Risk</button>
+            </form>
+
+            <div class="analyst-sim-result" id="simResultPanel" aria-live="polite">
+                <div class="analyst-sim-head">
+                    <p id="simProbabilityValue" class="analyst-sim-probability">0%</p>
+                    <span id="simRiskBadge" class="badge low">Low Risk</span>
+                </div>
+                <div class="analyst-progress-track"><span id="simProgressBar" style="width: 0%"></span></div>
+                <div id="simRing" class="analyst-sim-ring" aria-hidden="true"><span id="simRingText">0%</span></div>
+                <p id="simExplanation" class="muted">Run the simulator to see the churn risk interpretation.</p>
+            </div>
+        </article>
+    </div>
+
+    <div class="analyst-grid analyst-grid-bottom">
+        <article class="info-card glass-subcard analyst-wide">
+            <h3>Recent Predictions</h3>
+            <p class="muted">Latest prediction records generated by employees and analysts.</p>
+            <div class="table-wrap">
+                <table class="data-table" id="analystRecentTable">
+                    <thead>
+                        <tr>
+                            <th>Customer ID</th>
+                            <th>Credit Score</th>
+                            <th>Balance</th>
+                            <th>Churn Probability</th>
+                            <th>Risk Level</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="analystRecentTableBody">
+                        <tr><td colspan="6" class="muted">Loading recent predictions...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+
+        <article class="info-card glass-subcard analyst-wide">
+            <h3>Risk Alerts</h3>
+            <p class="muted">Automated risk insights from recent prediction and customer behavior patterns.</p>
+            <div id="riskAlertsSummary" class="analyst-chart-meta muted">Monitoring high-risk, prediction spikes, and inactivity.</div>
+            <div id="riskAlertsList" class="analyst-alert-list"></div>
+        </article>
+    </div>
+</section>
+<script id="analystDashboardData" type="application/json">{{ analyst_analytics_json|safe }}</script>
+{% endblock %}

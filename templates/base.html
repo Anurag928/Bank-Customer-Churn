@@ -6,7 +6,7 @@
     <title>{% block title %}Bank Customer Churn Prediction{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&family=Poppins:wght@600;700;800&family=Space+Mono:wght@700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&family=Orbitron:wght@500;700&family=Poppins:wght@600;700;800&family=Space+Mono:wght@700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
     <script>
@@ -21,82 +21,63 @@
         })();
     </script>
 </head>
-<body data-page="{% block page_id %}generic{% endblock %}" data-user-name="{{ current_user.username if current_user.is_authenticated else '' }}" data-user-email="{{ current_user.email if current_user.is_authenticated else '' }}">
+<body data-page="{% block page_id %}generic{% endblock %}" data-user-name="{{ current_user.username if current_user.is_authenticated else '' }}" data-user-email="{{ current_user.email if current_user.is_authenticated else '' }}" data-user-role="{{ current_user.role if current_user.is_authenticated else '' }}">
     <div class="bg-blob blob-1"></div>
     <div class="bg-blob blob-2"></div>
     <div class="noise"></div>
 
-    {% if show_nav %}
-    <nav class="app-nav glass navbar" aria-label="Main navigation">
-        <a class="brand" href="{{ url_for('home') }}">
-            <span class="brand-mark"><i class="fa-solid fa-chart-line"></i></span>
-            <span class="brand-copy">
-                <strong class="brand-text">RetentionOS</strong>
-                <small>Churn Intelligence</small>
-            </span>
-        </a>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <section class="flash-stack">
+        {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+    </section>
+    {% endif %}
+    {% endwith %}
 
-        <button class="menu-toggle" id="menuToggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNavPanel">
-            <i class="fa-solid fa-bars"></i>
-        </button>
-
-        <div class="nav-links" id="desktopNavLinks">
-            <a class="{% if request.endpoint == 'home' %}active{% endif %}" href="{{ url_for('home') }}">Home</a>
-            <a class="{% if request.endpoint == 'predict' %}active{% endif %}" href="{{ url_for('predict') }}">Predict</a>
-            <a class="{% if request.endpoint == 'history' %}active{% endif %}" href="{{ url_for('history') }}">History</a>
-        </div>
-
-        <div class="nav-actions">
-            <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle color theme">
-                <i class="fa-solid fa-sun" data-theme-icon></i>
-            </button>
-            <div class="user-menu" id="userMenu">
-                <button type="button" class="user-chip" id="userMenuTrigger" title="{{ current_user.email }}" aria-expanded="false" aria-controls="userDropdown">
-                    <span class="user-chip__avatar" id="navAvatar">{{ (current_user.username[:1] if current_user.is_authenticated else 'U')|upper }}</span>
-                    <span class="user-chip__name">{{ current_user.username }}</span>
-                    <i class="fa-solid fa-chevron-down user-chip__caret"></i>
-                </button>
-                <div class="user-dropdown glass" id="userDropdown" role="menu">
-                    <p class="user-dropdown__meta">{{ current_user.email }}</p>
-                    <a role="menuitem" href="{{ url_for('profile') }}"><i class="fa-regular fa-user"></i> Account</a>
-                    <a role="menuitem" href="{{ url_for('history') }}"><i class="fa-regular fa-clock"></i> Recent Predictions</a>
+    {% if show_nav and current_user.is_authenticated %}
+    <div class="app-shell">
+        <aside class="role-sidebar glass-card">
+            <a class="brand" href="{{ url_for('dashboard') }}">
+                <span class="brand-mark"><i class="fa-solid fa-chart-line"></i></span>
+                <span class="brand-copy">
+                    <strong class="brand-text">ChurnVision</strong>
+                    <small>{{ current_user.role }} Workspace</small>
+                </span>
+            </a>
+            <div class="sidebar-divider" aria-hidden="true"></div>
+            <nav class="role-nav" aria-label="Sidebar navigation">
+                {% for item in sidebar_items %}
+                <a class="{% if request.endpoint == item.endpoint %}active{% endif %}" href="{{ url_for(item.endpoint) }}">
+                    <span class="role-nav__icon"><i class="{{ item.icon }}"></i></span>
+                    <span class="role-nav__label">{{ item.label }}</span>
+                </a>
+                {% endfor %}
+            </nav>
+            <div class="role-sidebar__meta">
+                <div class="sidebar-user-card">
+                    <p class="sidebar-user-name">{{ current_user.username }}</p>
+                    <small class="sidebar-user-id">{{ current_user.official_id }}</small>
+                    <a class="btn btn-outline btn-sm sidebar-logout" href="{{ url_for('logout') }}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
                 </div>
             </div>
-            <a class="btn btn-outline btn-sm nav-logout" href="{{ url_for('logout') }}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
-        </div>
+        </aside>
 
-        <div class="mobile-nav-panel" id="mobileNavPanel">
-            <a class="{% if request.endpoint == 'home' %}active{% endif %}" href="{{ url_for('home') }}">Home</a>
-            <a class="{% if request.endpoint == 'predict' %}active{% endif %}" href="{{ url_for('predict') }}">Predict</a>
-            <a class="{% if request.endpoint == 'history' %}active{% endif %}" href="{{ url_for('history') }}">History</a>
-            <a href="{{ url_for('logout') }}">Logout</a>
-        </div>
-    </nav>
+        <div class="shell-main">
+            <header class="shell-topbar glass-card">
+                <h2>{% block shell_title %}Dashboard{% endblock %}</h2>
+                <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle color theme">
+                    <i class="fa-solid fa-sun" data-theme-icon></i>
+                </button>
+            </header>
     {% endif %}
 
-    <main class="page-wrap {% if show_nav %}with-nav{% endif %}">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        <section class="flash-stack">
-            {% for category, message in messages %}
-                <div class="flash {{ category }}">{{ message }}</div>
-            {% endfor %}
-        </section>
-        {% endif %}
-        {% endwith %}
+    <main class="page-wrap {% if show_nav and current_user.is_authenticated %}shell-content{% elif show_nav %}with-nav{% endif %}">{% block content %}{% endblock %}</main>
 
-        {% block content %}{% endblock %}
-    </main>
-
-    {% if show_nav %}
-    <footer class="app-footer">
-        <p>&copy; 2026 Bank Churn Predictor</p>
-        <div class="app-footer__links">
-            <a href="#">Terms</a>
-            <a href="#">Privacy</a>
-            <a href="#contact">Contact</a>
+    {% if show_nav and current_user.is_authenticated %}
         </div>
-    </footer>
+    </div>
     {% endif %}
 
     {% block extra_scripts %}{% endblock %}

@@ -1,7 +1,7 @@
 {
   "name": "bank-customer-churn",
   "version": "1.0.0",
-  "description": "Production-ready Phase 2 app with Flask backend, SQLite, real Google OAuth 2.0 login, XGBoost inference, profile stats, and Vercel deployment support.",
+  "description": "Production-ready Phase 2 app with Flask backend, local email/password auth, XGBoost inference, profile stats, and Vercel deployment support.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -16,8 +16,5 @@
   "bugs": {
     "url": "https://github.com/Anurag928/Bank-Customer-Churn/issues"
   },
-  "homepage": "https://github.com/Anurag928/Bank-Customer-Churn#readme",
-  "dependencies": {
-    "firebase": "^12.10.0"
-  }
+  "homepage": "https://github.com/Anurag928/Bank-Customer-Churn#readme"
 }
