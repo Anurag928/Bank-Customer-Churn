@@ -1,3 +1,4 @@
 date,email,entered_by,CustomerId,ClientId,CreditScore,Age,Tenure,Balance,NumOfProducts,HasCrCard,IsActiveMember,EstimatedSalary,prediction,probability,risk_level,base_probability
 2026-03-08T12:16:33.083333,mass@gmail.com,Mallikarjun,C15634621,C15634621,450.0,34.0,16.0,10245.0,1.0,1.0,1.0,10000.0,Customer Will Stay,3.81,Low,3.81
 2026-03-08T12:50:32.408502,mass@gmail.com,Mallikarjun,C15634612,C15634612,600.0,46.0,12.0,12345.0,1.0,1.0,1.0,14562.0,Customer Will Stay,26.04,Low,26.04
+2026-03-09T16:51:58.331343,mass@gmail.com,Mallikarjun,C15634656,C15634656,679.0,29.0,5.0,10000.0,1.0,1.0,1.0,10000.0,Customer Will Stay,3.78,Low,3.78

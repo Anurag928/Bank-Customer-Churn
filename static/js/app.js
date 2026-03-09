@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initHomePage();
     initPredictPage();
     initHistoryPage();
+    initAnalystReportingPage();
     initProfilePage();
     initRoleDashboards();
 });
@@ -60,7 +61,7 @@ function initTheme() {
 }
 
 function initNavbar() {
-    const nav = document.querySelector(".app-nav");
+    const nav = document.querySelector(".app-nav") || document.querySelector(".landing-nav");
     const menuToggle = document.getElementById("menuToggle");
     const mobilePanel = document.getElementById("mobileNavPanel");
     const trigger = document.getElementById("userMenuTrigger");
@@ -77,6 +78,10 @@ function initNavbar() {
             const expanded = menuToggle.getAttribute("aria-expanded") === "true";
             menuToggle.setAttribute("aria-expanded", String(!expanded));
             mobilePanel.classList.toggle("open");
+            const icon = menuToggle.querySelector("i");
+            if (icon) {
+                icon.className = expanded ? "fa-solid fa-bars" : "fa-solid fa-xmark";
+            }
         });
     }
 
@@ -682,6 +687,314 @@ function initHistoryPage() {
     render();
 }
 
+function initAnalystReportingPage() {
+    const current = pageId();
+    if (current !== "analyst-analysis" && current !== "analyst-reports") return;
+
+    const dataNode = document.getElementById("analystReportData");
+    const tbody = document.getElementById("analystReportBody");
+    const empty = document.getElementById("analystReportEmpty");
+    const form = document.getElementById("analystFilterForm");
+    const clearBtn = document.getElementById("clearFiltersBtn");
+    const exportBtn = document.getElementById("exportAnalystCsvBtn");
+    const sortByInput = document.getElementById("sortBy");
+    const sortOrderInput = document.getElementById("sortOrder");
+    const rowsPerPageInput = document.getElementById("rowsPerPage");
+    const prevBtn = document.getElementById("analystPrevPage");
+    const nextBtn = document.getElementById("analystNextPage");
+    const pageInfo = document.getElementById("analystPageInfo");
+
+    let rawRows = [];
+    try {
+        rawRows = JSON.parse(dataNode?.textContent || "[]");
+    } catch {
+        rawRows = [];
+    }
+
+    const money = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+
+    const normalizeRiskLevel = (risk, probability) => {
+        const normalized = String(risk || "").trim().toLowerCase();
+        if (normalized === "high") return "High";
+        if (normalized === "medium") return "Medium";
+        if (normalized === "low") return "Low";
+        if (probability >= 70) return "High";
+        if (probability >= 40) return "Medium";
+        return "Low";
+    };
+
+    const normalizedRows = rawRows.map((row, index) => {
+        const probability = Number(row?.probability || 0);
+        const customerRaw = String(row?.CustomerId || row?.ClientId || "").trim();
+        const fallbackId = `AUTO-CUST-${String(index + 1).padStart(3, "0")}`;
+        const customerId = customerRaw || fallbackId;
+        const predictionText = String(row?.prediction || "Customer Will Stay").trim() || "Customer Will Stay";
+        const predictionKey = predictionText.toLowerCase().includes("churn") ? "churn" : "stay";
+        const riskLevel = normalizeRiskLevel(row?.risk_level, probability);
+        const dateObj = row?.date ? new Date(row.date) : new Date();
+        const safeDate = Number.isNaN(dateObj.getTime()) ? new Date() : dateObj;
+
+        return {
+            date: safeDate,
+            dateDisplay: row?.date_display || formatDateTimeDisplay(safeDate.toISOString()),
+            customerId,
+            creditScore: Number(row?.CreditScore || 0),
+            age: Number(row?.Age || 0),
+            tenure: Number(row?.Tenure || 0),
+            balance: Number(row?.Balance || 0),
+            numOfProducts: Number(row?.NumOfProducts || 0),
+            hasCreditCard: Number(row?.HasCrCard || 0) === 1,
+            isActiveMember: Number(row?.IsActiveMember || 0) === 1,
+            estimatedSalary: Number(row?.EstimatedSalary || 0),
+            predictionText,
+            predictionKey,
+            probability,
+            riskLevel,
+        };
+    });
+
+    const state = {
+        page: 1,
+        rowsPerPage: Number(rowsPerPageInput?.value || 25),
+        filteredSorted: [...normalizedRows],
+    };
+
+    const readNumber = (id) => {
+        const value = String(document.getElementById(id)?.value || "").trim();
+        if (!value) return null;
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const readText = (id) => String(document.getElementById(id)?.value || "").trim();
+
+    const withinMinMax = (value, minValue, maxValue) => {
+        if (minValue !== null && value < minValue) return false;
+        if (maxValue !== null && value > maxValue) return false;
+        return true;
+    };
+
+    const probabilityClass = (value) => {
+        if (value <= 30) return "low";
+        if (value <= 60) return "medium";
+        return "high";
+    };
+
+    const riskRank = (risk) => {
+        if (risk === "Low") return 1;
+        if (risk === "Medium") return 2;
+        return 3;
+    };
+
+    const exportFilteredCsv = (rows) => {
+        const headers = [
+            "Date",
+            "Customer ID",
+            "Credit Score",
+            "Age",
+            "Tenure",
+            "Balance",
+            "Number of Products",
+            "Has Credit Card",
+            "Is Active Member",
+            "Estimated Salary",
+            "Prediction",
+            "Probability",
+            "Risk Level",
+        ];
+
+        const lines = [headers.join(",")];
+        rows.forEach((row) => {
+            const lineValues = [
+                row.dateDisplay,
+                row.customerId,
+                row.creditScore,
+                row.age,
+                row.tenure,
+                row.balance,
+                row.numOfProducts,
+                row.hasCreditCard ? "Yes" : "No",
+                row.isActiveMember ? "Active" : "Inactive",
+                row.estimatedSalary,
+                row.predictionText,
+                `${row.probability.toFixed(2)}%`,
+                row.riskLevel,
+            ];
+            lines.push(lineValues.map((item) => JSON.stringify(item)).join(","));
+        });
+
+        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "analyst-prediction-report.csv";
+        link.click();
+        URL.revokeObjectURL(link.href);
+    };
+
+    const applyFiltersAndSort = () => {
+        const customerQuery = readText("filterCustomerId").toLowerCase();
+        const creditMin = readNumber("filterCreditMin");
+        const creditMax = readNumber("filterCreditMax");
+        const ageMin = readNumber("filterAgeMin");
+        const ageMax = readNumber("filterAgeMax");
+        const tenureMin = readNumber("filterTenureMin");
+        const tenureMax = readNumber("filterTenureMax");
+        const balanceMin = readNumber("filterBalanceMin");
+        const balanceMax = readNumber("filterBalanceMax");
+        const salaryMin = readNumber("filterSalaryMin");
+        const salaryMax = readNumber("filterSalaryMax");
+        const hasCard = readText("filterHasCard");
+        const activeMember = readText("filterActive");
+        const riskLevel = readText("filterRiskLevel");
+        const prediction = readText("filterPrediction");
+        const probabilityMin = readNumber("filterProbabilityMin");
+        const probabilityMax = readNumber("filterProbabilityMax");
+
+        const filtered = normalizedRows.filter((row) => {
+            if (customerQuery && !row.customerId.toLowerCase().includes(customerQuery)) return false;
+            if (!withinMinMax(row.creditScore, creditMin, creditMax)) return false;
+            if (!withinMinMax(row.age, ageMin, ageMax)) return false;
+            if (!withinMinMax(row.tenure, tenureMin, tenureMax)) return false;
+            if (!withinMinMax(row.balance, balanceMin, balanceMax)) return false;
+            if (!withinMinMax(row.estimatedSalary, salaryMin, salaryMax)) return false;
+            if (!withinMinMax(row.probability, probabilityMin, probabilityMax)) return false;
+            if (hasCard === "yes" && !row.hasCreditCard) return false;
+            if (hasCard === "no" && row.hasCreditCard) return false;
+            if (activeMember === "active" && !row.isActiveMember) return false;
+            if (activeMember === "inactive" && row.isActiveMember) return false;
+            if (riskLevel && row.riskLevel !== riskLevel) return false;
+            if (prediction && row.predictionKey !== prediction) return false;
+            return true;
+        });
+
+        const sortBy = readText("sortBy") || "probability";
+        const sortOrder = readText("sortOrder") || "desc";
+
+        filtered.sort((a, b) => {
+            let compared = 0;
+            if (sortBy === "customerId") compared = a.customerId.localeCompare(b.customerId);
+            if (sortBy === "creditScore") compared = a.creditScore - b.creditScore;
+            if (sortBy === "age") compared = a.age - b.age;
+            if (sortBy === "tenure") compared = a.tenure - b.tenure;
+            if (sortBy === "balance") compared = a.balance - b.balance;
+            if (sortBy === "estimatedSalary") compared = a.estimatedSalary - b.estimatedSalary;
+            if (sortBy === "numOfProducts") compared = a.numOfProducts - b.numOfProducts;
+            if (sortBy === "probability") compared = a.probability - b.probability;
+            if (sortBy === "riskLevel") compared = riskRank(a.riskLevel) - riskRank(b.riskLevel);
+            return sortOrder === "asc" ? compared : compared * -1;
+        });
+
+        state.filteredSorted = filtered;
+        state.rowsPerPage = Number(rowsPerPageInput?.value || 25);
+        state.page = 1;
+        render();
+    };
+
+    const render = () => {
+        if (!tbody || !pageInfo) return;
+
+        const totalRows = state.filteredSorted.length;
+        const totalPages = Math.max(1, Math.ceil(totalRows / state.rowsPerPage));
+        state.page = Math.max(1, Math.min(state.page, totalPages));
+
+        const start = (state.page - 1) * state.rowsPerPage;
+        const end = start + state.rowsPerPage;
+        const pageRows = state.filteredSorted.slice(start, end);
+
+        tbody.innerHTML = pageRows
+            .map((row) => {
+                const probabilityTone = probabilityClass(row.probability);
+                const predictionClass = row.predictionKey === "churn" ? "badge-prediction-churn" : "badge-prediction-stay";
+                const riskClass = row.riskLevel === "High" ? "badge-risk-high" : row.riskLevel === "Medium" ? "badge-risk-medium" : "badge-risk-low";
+                return `
+                    <tr>
+                        <td>${row.dateDisplay}</td>
+                        <td>${row.customerId}</td>
+                        <td>${row.creditScore}</td>
+                        <td>${row.age}</td>
+                        <td>${row.tenure}</td>
+                        <td>${money.format(row.balance)}</td>
+                        <td>${row.numOfProducts}</td>
+                        <td><span class="badge ${row.hasCreditCard ? "badge-binary-yes" : "badge-binary-no"}">${row.hasCreditCard ? "Yes" : "No"}</span></td>
+                        <td><span class="badge ${row.isActiveMember ? "badge-binary-active" : "badge-binary-inactive"}">${row.isActiveMember ? "Active" : "Inactive"}</span></td>
+                        <td>${money.format(row.estimatedSalary)}</td>
+                        <td><span class="badge ${predictionClass}">${row.predictionText}</span></td>
+                        <td>
+                            <div class="probability-cell">
+                                <strong>${row.probability.toFixed(2)}%</strong>
+                                <div class="probability-track"><span class="probability-fill ${probabilityTone}" style="width:${Math.max(0, Math.min(100, row.probability))}%"></span></div>
+                            </div>
+                        </td>
+                        <td><span class="badge ${riskClass}">${row.riskLevel} Risk</span></td>
+                    </tr>
+                `;
+            })
+            .join("");
+
+        if (empty) {
+            empty.style.display = totalRows ? "none" : "block";
+        }
+
+        pageInfo.textContent = `Page ${state.page} of ${totalPages} (${totalRows} record${totalRows === 1 ? "" : "s"})`;
+        if (prevBtn) prevBtn.disabled = state.page <= 1;
+        if (nextBtn) nextBtn.disabled = state.page >= totalPages;
+    };
+
+    if (form) {
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            applyFiltersAndSort();
+        });
+    }
+
+    if (clearBtn && form) {
+        clearBtn.addEventListener("click", () => {
+            form.reset();
+            if (sortByInput) sortByInput.value = "probability";
+            if (sortOrderInput) sortOrderInput.value = "desc";
+            if (rowsPerPageInput) rowsPerPageInput.value = "25";
+            applyFiltersAndSort();
+        });
+    }
+
+    if (sortByInput) sortByInput.addEventListener("change", applyFiltersAndSort);
+    if (sortOrderInput) sortOrderInput.addEventListener("change", applyFiltersAndSort);
+    if (rowsPerPageInput) {
+        rowsPerPageInput.addEventListener("change", () => {
+            state.rowsPerPage = Number(rowsPerPageInput.value || 25);
+            state.page = 1;
+            render();
+        });
+    }
+
+    if (prevBtn) {
+        prevBtn.addEventListener("click", () => {
+            state.page -= 1;
+            render();
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener("click", () => {
+            state.page += 1;
+            render();
+        });
+    }
+
+    if (exportBtn) {
+        exportBtn.addEventListener("click", () => {
+            if (!state.filteredSorted.length) {
+                showToast("No filtered rows available for CSV export.");
+                return;
+            }
+            exportFilteredCsv(state.filteredSorted);
+            showToast("Filtered CSV export generated.");
+        });
+    }
+
+    applyFiltersAndSort();
+}
+
 function initRoleDashboards() {
     if (pageId() === "admin-analytics") {
         const node = document.getElementById("adminAnalyticsData");
@@ -1224,6 +1537,26 @@ function initRoleDashboards() {
 
 function initHomePage() {
     if (pageId() !== "home") return;
+
+    const navLinks = Array.from(document.querySelectorAll(".landing-nav__center a[href^='#'], #mobileNavPanel a[href^='#']"));
+    const sectionIds = ["top", "features", "faq"];
+
+    const syncActiveNav = () => {
+        const current = sectionIds.findLast((id) => {
+            const section = document.getElementById(id);
+            if (!section) return false;
+            const rect = section.getBoundingClientRect();
+            return rect.top <= 140;
+        }) || "top";
+
+        navLinks.forEach((link) => {
+            const isActive = link.getAttribute("href") === `#${current}`;
+            link.classList.toggle("active", isActive);
+        });
+    };
+
+    window.addEventListener("scroll", syncActiveNav, { passive: true });
+    syncActiveNav();
 
     document.querySelectorAll(".accordion-trigger").forEach((trigger) => {
         trigger.addEventListener("click", () => {

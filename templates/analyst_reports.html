@@ -3,15 +3,80 @@
 {% block shell_title %}Reports{% endblock %}
 {% block title %}Reports{% endblock %}
 {% block content %}
-<section class="home-section reveal">
-    <div class="dash-kpi-grid">
-        <article class="dash-kpi-card glass-subcard"><p class="kpi-label">Total Predictions</p><p class="kpi-value stat-number">{{ report_data.total_predictions }}</p></article>
-        <article class="dash-kpi-card glass-subcard"><p class="kpi-label">High Risk</p><p class="kpi-value stat-number text-danger">{{ report_data.high_risk_predictions }}</p></article>
-        <article class="dash-kpi-card glass-subcard"><p class="kpi-label">Low Risk</p><p class="kpi-value stat-number">{{ report_data.low_risk_predictions }}</p></article>
+<section class="glass-card section-card reveal analyst-report-shell">
+    <div class="section-header">
+        <div>
+            <h1>Reports</h1>
+            <p class="muted">Analyst reporting table with advanced filtering, sorting, and CSV export.</p>
+        </div>
+    </div>
+
+    <form id="analystFilterForm" class="analyst-filter-panel" novalidate>
+        <div class="analyst-filter-grid">
+            <label class="analyst-filter-field"><span>Customer ID</span><input type="text" id="filterCustomerId" placeholder="Search customer ID" /></label>
+            <label class="analyst-filter-field"><span>Credit Score Min</span><input type="number" id="filterCreditMin" min="0" /></label>
+            <label class="analyst-filter-field"><span>Credit Score Max</span><input type="number" id="filterCreditMax" min="0" /></label>
+            <label class="analyst-filter-field"><span>Age Min</span><input type="number" id="filterAgeMin" min="0" /></label>
+            <label class="analyst-filter-field"><span>Age Max</span><input type="number" id="filterAgeMax" min="0" /></label>
+            <label class="analyst-filter-field"><span>Tenure Min</span><input type="number" id="filterTenureMin" min="0" /></label>
+            <label class="analyst-filter-field"><span>Tenure Max</span><input type="number" id="filterTenureMax" min="0" /></label>
+            <label class="analyst-filter-field"><span>Balance Min</span><input type="number" id="filterBalanceMin" min="0" step="0.01" /></label>
+            <label class="analyst-filter-field"><span>Balance Max</span><input type="number" id="filterBalanceMax" min="0" step="0.01" /></label>
+            <label class="analyst-filter-field"><span>Salary Min</span><input type="number" id="filterSalaryMin" min="0" step="0.01" /></label>
+            <label class="analyst-filter-field"><span>Salary Max</span><input type="number" id="filterSalaryMax" min="0" step="0.01" /></label>
+            <label class="analyst-filter-field"><span>Has Credit Card</span><select id="filterHasCard"><option value="">Any</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+            <label class="analyst-filter-field"><span>Is Active Member</span><select id="filterActive"><option value="">Any</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+            <label class="analyst-filter-field"><span>Risk Level</span><select id="filterRiskLevel"><option value="">Any</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></label>
+            <label class="analyst-filter-field"><span>Prediction Result</span><select id="filterPrediction"><option value="">Any</option><option value="churn">Customer Will Churn</option><option value="stay">Customer Will Stay</option></select></label>
+            <label class="analyst-filter-field"><span>Probability Min (%)</span><input type="number" id="filterProbabilityMin" min="0" max="100" step="0.01" /></label>
+            <label class="analyst-filter-field"><span>Probability Max (%)</span><input type="number" id="filterProbabilityMax" min="0" max="100" step="0.01" /></label>
+        </div>
+
+        <div class="analyst-filter-actions">
+            <label class="analyst-filter-field compact"><span>Sort By</span><select id="sortBy"><option value="customerId">Customer ID</option><option value="creditScore">Credit Score</option><option value="age">Age</option><option value="tenure">Tenure</option><option value="balance">Balance</option><option value="estimatedSalary">Estimated Salary</option><option value="numOfProducts">Number of Products</option><option value="probability">Probability</option><option value="riskLevel">Risk Level</option></select></label>
+            <label class="analyst-filter-field compact"><span>Sort Order</span><select id="sortOrder"><option value="desc">Descending</option><option value="asc">Ascending</option></select></label>
+            <label class="analyst-filter-field compact"><span>Rows / Page</span><select id="rowsPerPage"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option></select></label>
+            <div class="analyst-action-buttons">
+                <button class="btn btn-primary btn-sm" id="applyFiltersBtn" type="submit"><i class="fa-solid fa-filter"></i> Apply Filters</button>
+                <button class="btn btn-outline btn-sm" id="clearFiltersBtn" type="button"><i class="fa-solid fa-eraser"></i> Clear Filters</button>
+                <button class="btn btn-outline btn-sm" id="exportAnalystCsvBtn" type="button"><i class="fa-solid fa-file-export"></i> Export CSV</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="table-wrap analyst-table-wrap">
+        <table id="analystReportTable" class="data-table analyst-data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Customer ID</th>
+                    <th>Credit Score</th>
+                    <th>Age</th>
+                    <th>Tenure</th>
+                    <th>Balance</th>
+                    <th>Number of Products</th>
+                    <th>Has Credit Card</th>
+                    <th>Is Active Member</th>
+                    <th>Estimated Salary</th>
+                    <th>Prediction</th>
+                    <th>Probability</th>
+                    <th>Risk Level</th>
+                </tr>
+            </thead>
+            <tbody id="analystReportBody"></tbody>
+        </table>
+    </div>
+
+    <div id="analystReportEmpty" class="history-empty">
+        <p>No prediction records match the selected filters.</p>
+    </div>
+
+    <div class="analyst-pagination" id="analystPagination">
+        <button class="btn btn-outline btn-sm" id="analystPrevPage" type="button">Previous</button>
+        <p id="analystPageInfo" class="muted">Page 1 of 1</p>
+        <button class="btn btn-outline btn-sm" id="analystNextPage" type="button">Next</button>
     </div>
 </section>
-<section class="glass-card section-card reveal">
-    <div class="section-header"><div><h2>Top Report Rows</h2></div></div>
-    <div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Customer ID</th><th>Result</th><th>Risk</th></tr></thead><tbody>{% for row in rows %}<tr><td>{{ row.date_display }}</td><td>{{ row.CustomerId }}</td><td>{{ row.prediction }}</td><td>{{ row.probability }}%</td></tr>{% else %}<tr><td colspan="4" class="muted">No report rows available.</td></tr>{% endfor %}</tbody></table></div>
-</section>
+
+<script id="analystReportData" type="application/json">{{ rows|tojson|safe }}</script>
 {% endblock %}

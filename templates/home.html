@@ -2,29 +2,51 @@
 {% block page_id %}home{% endblock %}
 {% block title %}Bank Customer Churn Prediction{% endblock %}
 {% block content %}
+<nav class="landing-nav" id="landingNav" aria-label="Primary">
+    <a class="brand" href="#top">
+        <span class="brand-mark"><i class="fa-solid fa-chart-line"></i></span>
+        <span class="brand-copy">
+            <strong class="brand-text">ChurnVision</strong>
+            <small>AI Risk Intelligence</small>
+        </span>
+    </a>
+
+    <div class="landing-nav__center" aria-label="Section links">
+        <a class="active" href="#top">Home</a>
+        <a href="#features">Features</a>
+        <a href="#faq">FAQ</a>
+    </div>
+
+    <div class="landing-nav__actions">
+        <a class="nav-link-btn" href="{{ url_for('signin') }}">Login</a>
+        <a class="nav-link-btn nav-link-btn--primary" href="{{ url_for('signup') }}">Sign Up</a>
+        <a class="nav-link-btn" href="{{ url_for('admin_login') }}">Admin Login</a>
+    </div>
+
+    <button class="menu-toggle" id="menuToggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="mobile-nav-panel" id="mobileNavPanel">
+        <a class="active" href="#top">Home</a>
+        <a href="#features">Features</a>
+        <a href="#faq">FAQ</a>
+        <a href="{{ url_for('signin') }}">Login</a>
+        <a href="{{ url_for('signup') }}">Sign Up</a>
+        <a href="{{ url_for('admin_login') }}">Admin Login</a>
+    </div>
+</nav>
+
 <section class="home-hero glass-card reveal" id="top">
-    <nav class="landing-nav">
-        <a class="brand" href="#top">
-            <span class="brand-mark"><i class="fa-solid fa-chart-line"></i></span>
-            <span class="brand-copy">
-                <strong class="brand-text">ChurnVision</strong>
-                <small>Churn Intelligence</small>
-            </span>
-        </a>
-        <div class="landing-nav__links">
-            <a href="#top">Home</a>
-            <a href="#features">Features</a>
-            <a href="#faq">FAQ</a>
-            <a href="{{ url_for('signin') }}">Login</a>
-            <a href="{{ url_for('signup') }}">Sign Up</a>
-            <a href="{{ url_for('admin_login') }}">Admin Login</a>
-        </div>
-    </nav>
+    <div class="home-hero__mesh" aria-hidden="true">
+        <span class="hero-orb orb-a"></span>
+        <span class="hero-orb orb-b"></span>
+        <span class="hero-orb orb-c"></span>
+    </div>
 
     <div class="home-hero__grid">
         <div class="home-hero__left">
             <p class="eyebrow">AI Retention Intelligence</p>
-            <h1 class="hero-title-gradient">Bank Customer Churn Prediction</h1>
+            <h1 class="hero-title-gradient"><span>Bank Customer</span> <span>Churn Prediction</span></h1>
             <p class="hero-lead">Predict churn risk with AI-powered scoring, approve internal users securely, and drive faster retention decisions.</p>
             <div class="cta-row">
                 <a class="btn btn-primary btn-lg" href="{{ url_for('signup') }}">Get Started</a>
@@ -32,7 +54,7 @@
                 <a class="btn btn-outline btn-lg" href="{{ url_for('signup') }}">Sign Up</a>
             </div>
         </div>
-        <aside class="home-hero__visual glass-subcard reveal">
+        <aside class="home-hero__visual glass-subcard reveal" aria-label="Key stats">
             <div class="dash-kpi-grid">
                 <article class="dash-kpi-card glass-subcard"><p class="kpi-label">Faster Detection</p><p class="kpi-value stat-number">95%</p></article>
                 <article class="dash-kpi-card glass-subcard"><p class="kpi-label">Role Security</p><p class="kpi-value stat-number">3</p></article>
@@ -42,7 +64,7 @@
     </div>
 </section>
 
-<section class="home-section reveal">
+<section class="home-section reveal home-section--split">
     <div class="section-head">
         <p class="eyebrow">What Is Customer Churn</p>
         <h2>Understand why customers leave</h2>
@@ -50,7 +72,7 @@
     </div>
 </section>
 
-<section class="home-section reveal">
+<section class="home-section reveal home-section--split">
     <div class="section-head">
         <p class="eyebrow">Why It Matters</p>
         <h2>Churn prediction protects revenue</h2>
@@ -58,7 +80,7 @@
     </div>
 </section>
 
-<section class="home-section reveal" id="features">
+<section class="home-section reveal home-section--surface" id="features">
     <div class="section-head">
         <p class="eyebrow">Key Features</p>
         <h2>Secure role-based churn operations</h2>
@@ -71,7 +93,7 @@
     </div>
 </section>
 
-<section class="home-section reveal">
+    <section class="home-section reveal home-section--surface">
     <div class="section-head">
         <p class="eyebrow">How The System Works</p>
         <h2>Simple secure workflow</h2>
@@ -83,29 +105,39 @@
     </div>
 </section>
 
-<section class="home-section reveal" id="faq">
+<section class="home-section reveal home-section--surface" id="faq">
     <div class="section-head"><p class="eyebrow">FAQ</p><h2>Frequently asked questions</h2></div>
     <div class="accordion-group" id="faqList">
-        <article class="accordion-item glass-subcard"><button type="button" class="accordion-trigger" aria-expanded="false"><span>Who can sign up?</span><i class="fa-solid fa-chevron-down accordion-icon"></i></button><div class="accordion-content"><div class="accordion-inner"><p>Only Employee and Analyst roles can sign up. Admin is separate.</p></div></div></article>
-        <article class="accordion-item glass-subcard"><button type="button" class="accordion-trigger" aria-expanded="false"><span>Can pending users login?</span><i class="fa-solid fa-chevron-down accordion-icon"></i></button><div class="accordion-content"><div class="accordion-inner"><p>No. Pending users must wait for admin approval.</p></div></div></article>
-        <article class="accordion-item glass-subcard"><button type="button" class="accordion-trigger" aria-expanded="false"><span>Are official IDs generated?</span><i class="fa-solid fa-chevron-down accordion-icon"></i></button><div class="accordion-content"><div class="accordion-inner"><p>No. Official IDs are entered by users and remain unchanged.</p></div></div></article>
+        <article class="accordion-item glass-subcard"><button type="button" class="accordion-trigger" aria-expanded="false"><span>What is customer churn?</span><i class="fa-solid fa-chevron-down accordion-icon"></i></button><div class="accordion-content"><div class="accordion-inner"><p>Customer churn refers to customers who stop using a bank's services over time. Predicting churn helps financial institutions identify customers who may leave and take proactive retention actions.</p></div></div></article>
+        <article class="accordion-item glass-subcard"><button type="button" class="accordion-trigger" aria-expanded="false"><span>Why is churn prediction important for banks?</span><i class="fa-solid fa-chevron-down accordion-icon"></i></button><div class="accordion-content"><div class="accordion-inner"><p>Churn prediction helps banks detect high-risk customers early, reduce customer loss, improve retention strategies, and protect long-term revenue.</p></div></div></article>
+        <article class="accordion-item glass-subcard"><button type="button" class="accordion-trigger" aria-expanded="false"><span>Who can access the churn prediction system?</span><i class="fa-solid fa-chevron-down accordion-icon"></i></button><div class="accordion-content"><div class="accordion-inner"><p>Only authorized internal users such as Employees and Analysts can access the system after Admin approval.</p></div></div></article>
     </div>
 </section>
 
-<section class="home-section reveal">
+<section class="home-section reveal home-section--cta">
     <div class="section-head">
         <p class="eyebrow">Call To Action</p>
-        <h2>Start securing your churn workflow today</h2>
+        <h2>Predict customer churn before it happens</h2>
+        <p class="muted">Use AI-driven analytics to identify high-risk customers early and take proactive retention actions. Secure internal access with role-based approval workflows designed for banking teams.</p>
         <div class="cta-row">
-            <a class="btn btn-primary" href="{{ url_for('signup') }}">Sign Up</a>
-            <a class="btn btn-outline" href="{{ url_for('signin') }}">Login</a>
-            <a class="btn btn-outline" href="{{ url_for('admin_login') }}">Admin Login</a>
+            <a class="btn btn-primary" href="{{ url_for('signup') }}">Start Prediction</a>
+            <a class="btn btn-outline" href="{{ url_for('signin') }}">Employee Login</a>
+            <a class="btn btn-outline" href="{{ url_for('admin_login') }}">Admin Portal</a>
         </div>
     </div>
 </section>
 
 <footer class="app-footer">
-    <p>&copy; 2026 Bank Churn Predictor</p>
-    <div class="app-footer__links"><a href="#">Terms</a><a href="#">Privacy</a><a href="#faq">FAQ</a></div>
+    <div class="app-footer__brand">
+        <p>&copy; 2026 ChurnVision AI</p>
+        <small>AI-Powered Customer Retention Intelligence</small>
+    </div>
+    <div class="app-footer__links"><a href="#">Terms</a><a href="#">Privacy Policy</a><a href="#faq">FAQ</a><a href="mailto:support@churnvision.ai">Contact</a></div>
 </footer>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.documentElement.setAttribute("data-theme", "light");
+</script>
 {% endblock %}

@@ -57,10 +57,23 @@ pymongo_module = _optional_module("pymongo")
 if not pymongo_module:
     raise RuntimeError("Missing dependency: pymongo. Install requirements before running app.py.")
 
+pymongo_errors_module = _optional_module("pymongo.errors")
+
 MongoClient = getattr(pymongo_module, "MongoClient", None)
 ReturnDocument = getattr(pymongo_module, "ReturnDocument", None)
 if not MongoClient or not ReturnDocument:
     raise RuntimeError("Unable to load MongoDB client classes from pymongo.")
+
+MongoConnectionErrors = tuple(
+    error_type
+    for error_type in (
+        getattr(pymongo_errors_module, "ServerSelectionTimeoutError", None),
+        getattr(pymongo_errors_module, "AutoReconnect", None),
+        getattr(pymongo_errors_module, "ConnectionFailure", None),
+        getattr(pymongo_errors_module, "NetworkTimeout", None),
+    )
+    if isinstance(error_type, type)
+)
 
 bson_module = _optional_module("bson")
 ObjectId = getattr(bson_module, "ObjectId", None) if bson_module else None
@@ -119,8 +132,55 @@ login_manager.login_view = "signin"
 login_manager.init_app(app)
 mail = Mail(app)
 
+MONGO_UNAVAILABLE_MESSAGE = "Database temporarily unavailable"
 
-mongo_client = MongoClient(MONGODB_URI)
+
+def is_mongo_unavailable_error(error: Exception) -> bool:
+    if MongoConnectionErrors and isinstance(error, MongoConnectionErrors):
+        return True
+
+    message = str(error).lower()
+    return (
+        "serverselectiontimeouterror" in message
+        or "ssl handshake failed" in message
+        or "replicasetnoprimary" in message
+        or "connection failure" in message
+    )
+
+
+def _mongo_error_response(error: Exception):
+    app.logger.warning("MongoDB unavailable: %s", error)
+    fallback_message = MONGO_UNAVAILABLE_MESSAGE
+
+    if request.path.startswith("/api/"):
+        return jsonify({"success": False, "error": fallback_message})
+
+    if request.endpoint == "signup":
+        flash(fallback_message, "error")
+        return render_template("signup.html", show_nav=False)
+
+    if request.endpoint == "signin":
+        flash(fallback_message, "error")
+        return render_template("signin.html", show_nav=False)
+
+    if request.endpoint == "admin_login":
+        flash(fallback_message, "error")
+        return render_template("admin_login.html", show_nav=False)
+
+    flash(fallback_message, "error")
+    return redirect(url_for("home"))
+
+
+for error_class in MongoConnectionErrors:
+    app.register_error_handler(error_class, _mongo_error_response)
+
+
+certifi_module = _optional_module("certifi")
+mongo_kwargs = {}
+if certifi_module:
+    mongo_kwargs["tlsCAFile"] = certifi_module.where()
+
+mongo_client = MongoClient(MONGODB_URI, **mongo_kwargs)
 try:
     default_db = mongo_client.get_default_database()
 except Exception:
@@ -170,7 +230,12 @@ def normalize_user_doc(doc: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]
 
 
 def fixed_admin_doc() -> Dict[str, Any]:
-    persisted = normalize_user_doc(users_collection.find_one({"$or": [{"official_id": ADMIN_ID}, {"email": ADMIN_EMAIL}]}))
+    try:
+        persisted = normalize_user_doc(users_collection.find_one({"$or": [{"official_id": ADMIN_ID}, {"email": ADMIN_EMAIL}]}))
+    except Exception as error:
+        app.logger.warning("Failed to load admin account from Mongo: %s", error)
+        persisted = None
+
     if persisted:
         persisted["role"] = ROLE_ADMIN
         persisted["status"] = STATUS_APPROVED
@@ -240,11 +305,18 @@ def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
+def get_user_by_email(email: str, suppress_errors: bool = True) -> Optional[Dict[str, Any]]:
     lowered = (email or "").strip().lower()
     if not lowered:
         return None
-    return normalize_user_doc(users_collection.find_one({"email": lowered}))
+
+    try:
+        return normalize_user_doc(users_collection.find_one({"email": lowered}))
+    except Exception as error:
+        app.logger.warning("Failed to fetch user by email: %s", error)
+        if suppress_errors:
+            return None
+        raise
 
 
 @login_manager.user_loader
@@ -700,8 +772,15 @@ def signup():
             flash("Please accept Terms and Conditions to continue.", "error")
             return render_template("signup.html", show_nav=False)
 
-        existing = get_user_by_email(email)
-        existing_official_id = users_collection.find_one({"official_id": official_id})
+        try:
+            existing = get_user_by_email(email, suppress_errors=False)
+            existing_official_id = users_collection.find_one({"official_id": official_id})
+        except Exception as error:
+            if is_mongo_unavailable_error(error):
+                flash(MONGO_UNAVAILABLE_MESSAGE, "error")
+                return render_template("signup.html", show_nav=False)
+            raise
+
         hashed_password = generate_password_hash(password)
 
         if existing:
@@ -754,7 +833,14 @@ def signin():
             flash("Email and password are required.", "error")
             return render_template("signin.html", show_nav=False)
 
-        user_doc = get_user_by_email(email)
+        try:
+            user_doc = get_user_by_email(email, suppress_errors=False)
+        except Exception as error:
+            if is_mongo_unavailable_error(error):
+                flash(MONGO_UNAVAILABLE_MESSAGE, "error")
+                return render_template("signin.html", show_nav=False)
+            raise
+
         if not user_doc or not user_doc.get("password_hash"):
             flash("Invalid credentials.", "error")
             return render_template("signin.html", show_nav=False)
@@ -778,11 +864,17 @@ def signin():
             flash("Use the separate Admin Login page.", "error")
             return render_template("signin.html", show_nav=False)
 
-        updated = users_collection.find_one_and_update(
-            {"_id": user_doc["_id"]},
-            {"$set": {"last_login": now_utc(), "updated_at": now_utc()}},
-            return_document=ReturnDocument.AFTER,
-        )
+        try:
+            updated = users_collection.find_one_and_update(
+                {"_id": user_doc["_id"]},
+                {"$set": {"last_login": now_utc(), "updated_at": now_utc()}},
+                return_document=ReturnDocument.AFTER,
+            )
+        except Exception as error:
+            if is_mongo_unavailable_error(error):
+                flash(MONGO_UNAVAILABLE_MESSAGE, "error")
+                return render_template("signin.html", show_nav=False)
+            raise
 
         login_user(AppUser(updated))
         return redirect_to_dashboard(current_user)

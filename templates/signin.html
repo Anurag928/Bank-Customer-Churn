@@ -3,7 +3,6 @@
 {% block title %}Sign In | Bank Customer Churn Prediction{% endblock %}
 {% block content %}
 <section class="auth-split reveal">
-    <button type="button" class="theme-toggle auth-theme-toggle" data-theme-toggle aria-label="Toggle color theme"><i class="fa-solid fa-sun" data-theme-icon></i></button>
     <aside class="auth-visual glass-card" aria-hidden="true">
         <div class="auth-wave auth-wave--one"></div>
         <div class="auth-wave auth-wave--two"></div>
@@ -11,6 +10,7 @@
         <div class="auth-visual__content"><p class="eyebrow">Employee / Analyst Access</p><h1>Sign in after approval.</h1><p>Pending and rejected requests cannot access dashboards.</p></div>
     </aside>
     <article class="auth-card glass-card">
+        <button type="button" class="theme-toggle auth-theme-toggle auth-theme-toggle--inside" data-theme-toggle aria-label="Toggle color theme"><i class="fa-solid fa-sun" data-theme-icon></i></button>
         <div class="auth-card__head"><h2>Sign In</h2><p class="muted">For approved Employee and Analyst accounts.</p></div>
         <form method="POST" class="form-grid auth-form" id="signinForm" novalidate>
             <div class="field-group input-field has-icon"><i class="fa-regular fa-envelope field-icon"></i><input id="email" name="email" type="email" placeholder=" " required /><label for="email">Email</label><small class="field-hint" data-error-for="email"></small></div>
