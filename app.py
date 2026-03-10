@@ -102,10 +102,10 @@ STATUS_PENDING = "pending"
 STATUS_APPROVED = "approved"
 STATUS_REJECTED = "rejected"
 
-ADMIN_ID = "AADM057"
+ADMIN_ID = (os.getenv("ADMIN_ID") or "AADM057").strip()
 ADMIN_EMAIL = (os.getenv("ADMIN_EMAIL") or "gudaanurag6@gmail.com").strip().lower()
-ADMIN_PASSWORD = "Anurag@22102005"
-ADMIN_USER_SESSION_ID = "admin-fixed"
+ADMIN_PASSWORD = (os.getenv("ADMIN_PASSWORD") or "").strip()
+ADMIN_USER_SESSION_ID = (os.getenv("ADMIN_USER_SESSION_ID") or "admin-fixed").strip()
 
 MODEL_PATH = os.getenv("MODEL_PATH", "model/xgb_model.pkl")
 CSV_LOG_PATH = os.getenv("CSV_LOG_PATH", "prediction_history.csv")
