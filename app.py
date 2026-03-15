@@ -1,19 +1,41 @@
 import csv
+import hashlib
 import importlib
 import json
 import os
 import pickle
 import re
+import secrets
+import subprocess
+import sys
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any, Dict, Optional
+
+
+def _maybe_reexec_with_project_venv() -> None:
+    current_python = os.path.normcase(os.path.abspath(sys.executable))
+    project_dir = os.path.dirname(os.path.abspath(__file__))
+    preferred_python = os.path.normcase(os.path.abspath(os.path.join(project_dir, ".venv", "Scripts", "python.exe")))
+
+    if os.path.exists(preferred_python) and preferred_python != current_python:
+        command = [preferred_python, os.path.abspath(__file__), *sys.argv[1:]]
+        raise SystemExit(subprocess.call(command, cwd=project_dir))
+
+
+_maybe_reexec_with_project_venv()
 
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config.mail_config import configure_mail
-from services.email_service import notify_admin_new_signup, notify_user_approved
+from services.email_service import (
+    notify_admin_new_signup,
+    notify_user_approved,
+    send_password_changed_confirmation,
+    send_password_reset_email,
+)
 from services.registration_service import approve_signup_request, create_signup_request
 
 
@@ -112,6 +134,26 @@ CSV_LOG_PATH = os.getenv("CSV_LOG_PATH", "prediction_history.csv")
 MONGODB_URI = (os.getenv("MONGODB_URI") or "").strip()
 MONGODB_DB_NAME = (os.getenv("MONGODB_DB_NAME") or "bank_churn_app").strip()
 
+
+def _env_int(name: str, default: int) -> int:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        parsed = int(raw)
+    except ValueError:
+        return default
+    return parsed if parsed > 0 else default
+
+
+MONGO_SERVER_SELECTION_TIMEOUT_MS = _env_int("MONGO_SERVER_SELECTION_TIMEOUT_MS", 3000)
+MONGO_CONNECT_TIMEOUT_MS = _env_int("MONGO_CONNECT_TIMEOUT_MS", 3000)
+MONGO_SOCKET_TIMEOUT_MS = _env_int("MONGO_SOCKET_TIMEOUT_MS", 3000)
+PASSWORD_RESET_TOKEN_TTL_MINUTES = _env_int("PASSWORD_RESET_TOKEN_TTL_MINUTES", 15)
+
+PASSWORD_RESET_GENERIC_MESSAGE = "If an account with this email exists, a reset link has been sent."
+PASSWORD_RESET_INVALID_MESSAGE = "This password reset link is invalid or expired. Request a new one."
+
 if not MONGODB_URI or "<" in MONGODB_URI or ">" in MONGODB_URI:
     raise RuntimeError("MONGODB_URI is not configured. Add a valid MongoDB URI in .env.")
 
@@ -167,6 +209,14 @@ def _mongo_error_response(error: Exception):
         flash(fallback_message, "error")
         return render_template("admin_login.html", show_nav=False)
 
+    if request.endpoint == "forgot_password":
+        flash(fallback_message, "error")
+        return render_template("forgot_password.html", show_nav=False)
+
+    if request.endpoint == "reset_password":
+        flash(fallback_message, "error")
+        return render_template("reset_password.html", show_nav=False, reset_token_valid=False)
+
     flash(fallback_message, "error")
     return redirect(url_for("home"))
 
@@ -176,7 +226,12 @@ for error_class in MongoConnectionErrors:
 
 
 certifi_module = _optional_module("certifi")
-mongo_kwargs = {}
+mongo_kwargs = {
+    # Keep UI responsive when Mongo is down or blocked by network/TLS issues.
+    "serverSelectionTimeoutMS": MONGO_SERVER_SELECTION_TIMEOUT_MS,
+    "connectTimeoutMS": MONGO_CONNECT_TIMEOUT_MS,
+    "socketTimeoutMS": MONGO_SOCKET_TIMEOUT_MS,
+}
 if certifi_module:
     mongo_kwargs["tlsCAFile"] = certifi_module.where()
 
@@ -192,6 +247,7 @@ predictions_collection = mongo_db["predictions"]
 try:
     users_collection.create_index("email", unique=True)
     users_collection.create_index("official_id", unique=True, sparse=True)
+    users_collection.create_index("reset_token_hash", unique=True, sparse=True)
     predictions_collection.create_index([("user_id", -1), ("created_at", -1)])
 except Exception as index_error:
     app.logger.warning("Mongo index setup skipped: %s", index_error)
@@ -227,6 +283,85 @@ def normalize_user_doc(doc: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]
     normalized["status"] = normalized_status if normalized_status else STATUS_APPROVED
     normalized["official_id"] = (normalized.get("official_id") or "").strip().upper()
     return normalized
+
+
+def is_valid_email_address(email: str) -> bool:
+    return bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", (email or "").strip()))
+
+
+def password_reset_expiry() -> datetime:
+    return now_utc() + timedelta(minutes=PASSWORD_RESET_TOKEN_TTL_MINUTES)
+
+
+def hash_reset_token(token: str) -> str:
+    return hashlib.sha256((token or "").encode("utf-8")).hexdigest()
+
+
+def can_request_password_reset(user_doc: Optional[Dict[str, Any]]) -> bool:
+    if not user_doc:
+        return False
+    return user_doc.get("role") != ROLE_ADMIN and bool(user_doc.get("password_hash"))
+
+
+def issue_password_reset_token(user_doc: Dict[str, Any]) -> tuple[str, datetime]:
+    token = secrets.token_urlsafe(32)
+    issued_at = now_utc()
+    expires_at = password_reset_expiry()
+    users_collection.update_one(
+        {"_id": user_doc["_id"]},
+        {
+            "$set": {
+                "reset_token_hash": hash_reset_token(token),
+                "reset_token_expires_at": expires_at,
+                "reset_token_created_at": issued_at,
+                "updated_at": issued_at,
+            },
+        },
+    )
+    return token, expires_at
+
+
+def get_user_by_reset_token(token: str, suppress_errors: bool = True) -> Optional[Dict[str, Any]]:
+    if not token:
+        return None
+
+    try:
+        return normalize_user_doc(
+            users_collection.find_one(
+                {
+                    "reset_token_hash": hash_reset_token(token),
+                    "reset_token_expires_at": {"$gt": now_utc()},
+                }
+            )
+        )
+    except Exception as error:
+        app.logger.warning("Failed to fetch user by reset token: %s", error)
+        if suppress_errors:
+            return None
+        raise
+
+
+def clear_password_reset_token(user_id: Any) -> None:
+    users_collection.update_one(
+        {"_id": user_id},
+        {
+            "$unset": {
+                "reset_token_hash": "",
+                "reset_token_expires_at": "",
+                "reset_token_created_at": "",
+            },
+            "$set": {"updated_at": now_utc()},
+        },
+    )
+
+
+def build_password_reset_email_context(user_doc: Dict[str, Any], token: str) -> Dict[str, Any]:
+    return {
+        "username": user_doc.get("username") or "there",
+        "email": user_doc.get("email") or "",
+        "reset_link": url_for("reset_password", token=token, _external=True),
+        "expiry_minutes": PASSWORD_RESET_TOKEN_TTL_MINUTES,
+    }
 
 
 def fixed_admin_doc() -> Dict[str, Any]:
@@ -791,6 +926,8 @@ def signup():
             flash("This official ID is already registered.", "error")
             return render_template("signup.html", show_nav=False)
 
+        request_timestamp = now_utc()
+
         try:
             create_signup_request(
                 users_collection,
@@ -799,14 +936,22 @@ def signup():
                 password_hash=hashed_password,
                 role=role,
                 official_id=official_id,
-                now=now_utc(),
+                now=request_timestamp,
                 pending_status=STATUS_PENDING,
             )
         except Exception:
             flash("Unable to create account right now. Please try again.", "error")
             return render_template("signup.html", show_nav=False)
 
-        notify_admin_new_signup(mail=mail, admin_email=ADMIN_EMAIL, user_email=email, role=role)
+        notify_admin_new_signup(
+            mail=mail,
+            admin_email=ADMIN_EMAIL,
+            username=username,
+            user_email=email,
+            role=role,
+            request_time=request_timestamp,
+            review_link=url_for("approval_requests", _external=True),
+        )
 
         return redirect(url_for("request_submitted"))
 
@@ -818,6 +963,136 @@ def request_submitted():
     if current_user.is_authenticated:
         return redirect_to_dashboard(current_user)
     return render_template("request_submitted.html", show_nav=False)
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect_to_dashboard(current_user)
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+
+        if not email:
+            flash("Email is required.", "error")
+            return render_template("forgot_password.html", show_nav=False, submitted_email=email)
+
+        if not is_valid_email_address(email):
+            flash("Enter a valid email address.", "error")
+            return render_template("forgot_password.html", show_nav=False, submitted_email=email)
+
+        try:
+            user_doc = get_user_by_email(email, suppress_errors=False)
+            if can_request_password_reset(user_doc):
+                token, _ = issue_password_reset_token(user_doc)
+                email_context = build_password_reset_email_context(user_doc, token)
+                send_password_reset_email(
+                    mail=mail,
+                    user_email=email_context["email"],
+                    username=email_context["username"],
+                    reset_link=email_context["reset_link"],
+                    expiry_minutes=email_context["expiry_minutes"],
+                )
+        except Exception as error:
+            if is_mongo_unavailable_error(error):
+                flash(MONGO_UNAVAILABLE_MESSAGE, "error")
+                return render_template("forgot_password.html", show_nav=False, submitted_email=email)
+            raise
+
+        flash(PASSWORD_RESET_GENERIC_MESSAGE, "success")
+        return redirect(url_for("forgot_password"))
+
+    return render_template("forgot_password.html", show_nav=False)
+
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token: str):
+    if current_user.is_authenticated:
+        return redirect_to_dashboard(current_user)
+
+    try:
+        user_doc = get_user_by_reset_token(token, suppress_errors=False)
+    except Exception as error:
+        if is_mongo_unavailable_error(error):
+            flash(MONGO_UNAVAILABLE_MESSAGE, "error")
+            return render_template("reset_password.html", show_nav=False, reset_token_valid=False)
+        raise
+
+    reset_token_valid = can_request_password_reset(user_doc)
+
+    if request.method == "POST":
+        if not reset_token_valid:
+            flash(PASSWORD_RESET_INVALID_MESSAGE, "error")
+            return render_template("reset_password.html", show_nav=False, reset_token_valid=False)
+
+        new_password = request.form.get("new_password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if not new_password or not confirm_password:
+            flash("New password and confirmation are required.", "error")
+            return render_template("reset_password.html", show_nav=False, reset_token_valid=True)
+
+        if new_password != confirm_password:
+            flash("Passwords do not match.", "error")
+            return render_template("reset_password.html", show_nav=False, reset_token_valid=True)
+
+        password_error = validate_signup_password(new_password, user_doc.get("username", "User"), user_doc.get("email", ""))
+        if password_error:
+            flash(password_error, "error")
+            return render_template("reset_password.html", show_nav=False, reset_token_valid=True)
+
+        existing_password_hash = user_doc.get("password_hash") or ""
+        if existing_password_hash and check_password_hash(existing_password_hash, new_password):
+            flash("Choose a new password that is different from your current one.", "error")
+            return render_template("reset_password.html", show_nav=False, reset_token_valid=True)
+
+        now = now_utc()
+
+        try:
+            update_result = users_collection.update_one(
+                {
+                    "_id": user_doc["_id"],
+                    "reset_token_hash": hash_reset_token(token),
+                    "reset_token_expires_at": {"$gt": now},
+                },
+                {
+                    "$set": {
+                        "password_hash": generate_password_hash(new_password),
+                        "password_reset_at": now,
+                        "updated_at": now,
+                    },
+                    "$unset": {
+                        "reset_token_hash": "",
+                        "reset_token_expires_at": "",
+                        "reset_token_created_at": "",
+                    },
+                },
+            )
+        except Exception as error:
+            if is_mongo_unavailable_error(error):
+                flash(MONGO_UNAVAILABLE_MESSAGE, "error")
+                return render_template("reset_password.html", show_nav=False, reset_token_valid=True)
+            raise
+
+        if update_result.modified_count != 1:
+            flash(PASSWORD_RESET_INVALID_MESSAGE, "error")
+            return render_template("reset_password.html", show_nav=False, reset_token_valid=False)
+
+        send_password_changed_confirmation(
+            mail=mail,
+            user_email=(user_doc.get("email") or "").strip().lower(),
+            username=user_doc.get("username") or "User",
+            changed_at=now,
+            action_source="Password reset link",
+            ip_address=request.headers.get("X-Forwarded-For", request.remote_addr or "") or "Unknown",
+            device_info=request.headers.get("User-Agent", "Unknown device"),
+            sign_in_link=url_for("signin", _external=True),
+        )
+
+        flash("Your password has been reset successfully. Please sign in.", "success")
+        return redirect(url_for("signin"))
+
+    return render_template("reset_password.html", show_nav=False, reset_token_valid=reset_token_valid)
 
 
 @app.route("/signin", methods=["GET", "POST"])
@@ -1571,6 +1846,8 @@ def approve_request(user_id: str):
             user_email=(updated.get("email") or "").strip().lower(),
             username=updated.get("username") or "User",
             role=updated.get("role") or ROLE_EMPLOYEE,
+            approved_at=now_utc(),
+            login_link=url_for("signin", _external=True),
         )
         flash("User approved successfully.", "success")
     else:
@@ -1873,6 +2150,18 @@ def profile():
             {"_id": ObjectId(current_user.id)},
             {"$set": {"password_hash": generate_password_hash(new_password), "updated_at": now_utc()}},
         )
+
+        send_password_changed_confirmation(
+            mail=mail,
+            user_email=(current_user.email or "").strip().lower(),
+            username=current_user.username or "User",
+            changed_at=now_utc(),
+            action_source="Profile security settings",
+            ip_address=request.headers.get("X-Forwarded-For", request.remote_addr or "") or "Unknown",
+            device_info=request.headers.get("User-Agent", "Unknown device"),
+            sign_in_link=url_for("signin", _external=True),
+        )
+
         flash("Password updated successfully.", "success")
         return redirect(url_for("profile"))
 

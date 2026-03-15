@@ -204,41 +204,68 @@ function initAuthForms() {
             officialIdInput.addEventListener("input", normalizeOfficial);
         }
 
-        const password = document.getElementById("password");
-        const fill = document.getElementById("passwordStrengthFill");
-        const hint = document.getElementById("passwordStrengthHint");
-        if (password && fill && hint) {
-            password.addEventListener("input", () => {
-                const value = password.value;
-                const hasLength = value.length >= 8;
-                const hasUpper = /[A-Z]/.test(value);
-                const hasLower = /[a-z]/.test(value);
-                const hasNumber = /\d/.test(value);
-                const hasSpecial = /[^A-Za-z0-9]/.test(value);
-                const score = [hasLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length;
-
-                if (!value.length) {
-                    fill.style.width = "0%";
-                    fill.className = "password-strength__fill";
-                    hint.textContent = "Use 8+ chars with upper, lower, number, and symbol.";
-                    return;
-                }
-                if (score <= 2) {
-                    fill.style.width = "35%";
-                    fill.className = "password-strength__fill";
-                    hint.textContent = "Weak password.";
-                } else if (score <= 4) {
-                    fill.style.width = "68%";
-                    fill.className = "password-strength__fill medium";
-                    hint.textContent = "Good, add one more rule for strong strength.";
-                } else {
-                    fill.style.width = "100%";
-                    fill.className = "password-strength__fill strong";
-                    hint.textContent = "Strong password.";
-                }
-            });
-        }
+        bindPasswordStrength("password", "passwordStrengthFill", "passwordStrengthHint");
     }
+
+    const forgotPasswordForm = document.getElementById("forgotPasswordForm");
+    if (forgotPasswordForm) {
+        forgotPasswordForm.addEventListener("submit", (event) => {
+            const valid = validateEmail("forgotEmail");
+            if (!valid) event.preventDefault();
+        });
+    }
+
+    const resetPasswordForm = document.getElementById("resetPasswordForm");
+    if (resetPasswordForm) {
+        bindPasswordStrength("newPassword", "resetPasswordStrengthFill", "resetPasswordStrengthHint");
+        resetPasswordForm.addEventListener("submit", (event) => {
+            let valid = true;
+            valid = validatePassword("newPassword") && valid;
+            valid = validateConfirmPassword("newPassword", "confirmNewPassword") && valid;
+            if (!valid) event.preventDefault();
+        });
+    }
+}
+
+function bindPasswordStrength(passwordId, fillId, hintId) {
+    const password = document.getElementById(passwordId);
+    const fill = document.getElementById(fillId);
+    const hint = document.getElementById(hintId);
+    if (!password || !fill || !hint) return;
+
+    const syncStrength = () => {
+        const value = password.value;
+        const hasLength = value.length >= 8;
+        const hasUpper = /[A-Z]/.test(value);
+        const hasLower = /[a-z]/.test(value);
+        const hasNumber = /\d/.test(value);
+        const hasSpecial = /[^A-Za-z0-9]/.test(value);
+        const score = [hasLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length;
+
+        if (!value.length) {
+            fill.style.width = "0%";
+            fill.className = "password-strength__fill";
+            hint.textContent = "Use 8+ chars with upper, lower, number, and symbol.";
+            return;
+        }
+
+        if (score <= 2) {
+            fill.style.width = "35%";
+            fill.className = "password-strength__fill";
+            hint.textContent = "Weak password.";
+        } else if (score <= 4) {
+            fill.style.width = "68%";
+            fill.className = "password-strength__fill medium";
+            hint.textContent = "Good, add one more rule for strong strength.";
+        } else {
+            fill.style.width = "100%";
+            fill.className = "password-strength__fill strong";
+            hint.textContent = "Strong password.";
+        }
+    };
+
+    syncStrength();
+    password.addEventListener("input", syncStrength);
 }
 
 function validateOfficialId(roleId, officialId) {

@@ -26,6 +26,7 @@ Production-ready Phase 2 app with Flask backend, local email/password auth, XGBo
 - `MAIL_USERNAME` (set to `bankchurnpredictor@gmail.com`)
 - `MAIL_PASSWORD` (Gmail app password)
 - `MAIL_DEFAULT_SENDER` (optional, defaults to `MAIL_USERNAME`)
+- `PASSWORD_RESET_TOKEN_TTL_MINUTES` (optional, default `15`)
 - `ADMIN_ID` (optional, default `AADM057`)
 - `ADMIN_EMAIL` (optional, default `gudaanurag6@gmail.com`)
 - `ADMIN_PASSWORD` (required in production)
