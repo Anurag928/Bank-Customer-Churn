@@ -939,7 +939,15 @@ def signup():
                 now=request_timestamp,
                 pending_status=STATUS_PENDING,
             )
-        except Exception:
+        except Exception as error:
+            app.logger.exception("Signup request creation failed: %s", error)
+            error_text = str(error).lower()
+            if "duplicate" in error_text or "e11000" in error_text:
+                flash("This email or official ID is already registered.", "error")
+                return render_template("signup.html", show_nav=False)
+            if is_mongo_unavailable_error(error):
+                flash(MONGO_UNAVAILABLE_MESSAGE, "error")
+                return render_template("signup.html", show_nav=False)
             flash("Unable to create account right now. Please try again.", "error")
             return render_template("signup.html", show_nav=False)
 
