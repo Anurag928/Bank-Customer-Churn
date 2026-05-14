@@ -7,9 +7,9 @@ document.addEventListener("DOMContentLoaded", () => {
     initHomePage();
     initPredictPage();
     initHistoryPage();
-    initAnalystReportingPage();
     initProfilePage();
     initRoleDashboards();
+    initAnalystReportingPage();
 });
 
 function pageId() {
@@ -714,31 +714,39 @@ function initHistoryPage() {
     render();
 }
 
+
 function initAnalystReportingPage() {
     const current = pageId();
     if (current !== "analyst-analysis" && current !== "analyst-reports") return;
 
-    const dataNode = document.getElementById("analystReportData");
     const tbody = document.getElementById("analystReportBody");
     const empty = document.getElementById("analystReportEmpty");
     const form = document.getElementById("analystFilterForm");
     const clearBtn = document.getElementById("clearFiltersBtn");
-    const exportBtn = document.getElementById("exportAnalystCsvBtn");
-    const sortByInput = document.getElementById("sortBy");
-    const sortOrderInput = document.getElementById("sortOrder");
     const rowsPerPageInput = document.getElementById("rowsPerPage");
     const prevBtn = document.getElementById("analystPrevPage");
     const nextBtn = document.getElementById("analystNextPage");
     const pageInfo = document.getElementById("analystPageInfo");
-
-    let rawRows = [];
-    try {
-        rawRows = JSON.parse(dataNode?.textContent || "[]");
-    } catch {
-        rawRows = [];
-    }
+    const applyFiltersBtn = document.getElementById("applyFiltersBtn");
+    const exportCsvBtn = document.getElementById("exportAnalystCsvBtn");
+    const exportExcelBtn = document.getElementById("exportAnalystExcelBtn");
+    const exportPdfBtn = document.getElementById("exportAnalystPdfBtn");
+    const loadingOverlay = document.getElementById("tableLoadingOverlay");
 
     const money = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+
+    const state = {
+        page: 1,
+        rowsPerPage: Number(rowsPerPageInput?.value || 25),
+        totalRows: 0,
+        totalPages: 1,
+        isLoading: false,
+        rows: [],
+        sortBy: "date",
+        sortOrder: "desc"
+    };
+
+    const readValue = (id) => document.getElementById(id)?.value || "";
 
     const normalizeRiskLevel = (risk, probability) => {
         const normalized = String(risk || "").trim().toLowerCase();
@@ -750,277 +758,279 @@ function initAnalystReportingPage() {
         return "Low";
     };
 
-    const normalizedRows = rawRows.map((row, index) => {
+    const processRow = (row, index) => {
         const probability = Number(row?.probability || 0);
-        const customerRaw = String(row?.CustomerId || row?.ClientId || "").trim();
-        const fallbackId = `AUTO-CUST-${String(index + 1).padStart(3, "0")}`;
-        const customerId = customerRaw || fallbackId;
-        const predictionText = String(row?.prediction || "Customer Will Stay").trim() || "Customer Will Stay";
+        const customerId = row?.CustomerId || row?.ClientId || `AUTO-${index}`;
+        const predictionText = row?.prediction || "Customer Will Stay";
         const predictionKey = predictionText.toLowerCase().includes("churn") ? "churn" : "stay";
         const riskLevel = normalizeRiskLevel(row?.risk_level, probability);
-        const dateObj = row?.date ? new Date(row.date) : new Date();
-        const safeDate = Number.isNaN(dateObj.getTime()) ? new Date() : dateObj;
-
         return {
-            date: safeDate,
-            dateDisplay: row?.date_display || formatDateTimeDisplay(safeDate.toISOString()),
+            ...row,
             customerId,
-            creditScore: Number(row?.CreditScore || 0),
-            age: Number(row?.Age || 0),
-            tenure: Number(row?.Tenure || 0),
-            balance: Number(row?.Balance || 0),
-            numOfProducts: Number(row?.NumOfProducts || 0),
-            hasCreditCard: Number(row?.HasCrCard || 0) === 1,
-            isActiveMember: Number(row?.IsActiveMember || 0) === 1,
-            estimatedSalary: Number(row?.EstimatedSalary || 0),
             predictionText,
             predictionKey,
             probability,
-            riskLevel,
+            riskLevel
         };
-    });
-
-    const state = {
-        page: 1,
-        rowsPerPage: Number(rowsPerPageInput?.value || 25),
-        filteredSorted: [...normalizedRows],
     };
 
-    const readNumber = (id) => {
-        const value = String(document.getElementById(id)?.value || "").trim();
-        if (!value) return null;
-        const parsed = Number(value);
-        return Number.isFinite(parsed) ? parsed : null;
-    };
+    const fetchFilteredData = async (silent = false) => {
+        if (state.isLoading) return;
+        state.isLoading = true;
+        
+        const loader = document.getElementById("syncLoader");
+        if (silent && loader) loader.style.display = "flex";
+        else if (loadingOverlay) loadingOverlay.classList.add("active");
 
-    const readText = (id) => String(document.getElementById(id)?.value || "").trim();
+        if (applyFiltersBtn) {
+            applyFiltersBtn.disabled = true;
+            applyFiltersBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...';
+        }
 
-    const withinMinMax = (value, minValue, maxValue) => {
-        if (minValue !== null && value < minValue) return false;
-        if (maxValue !== null && value > maxValue) return false;
-        return true;
-    };
-
-    const probabilityClass = (value) => {
-        if (value <= 30) return "low";
-        if (value <= 60) return "medium";
-        return "high";
-    };
-
-    const riskRank = (risk) => {
-        if (risk === "Low") return 1;
-        if (risk === "Medium") return 2;
-        return 3;
-    };
-
-    const exportFilteredCsv = (rows) => {
-        const headers = [
-            "Date",
-            "Customer ID",
-            "Credit Score",
-            "Age",
-            "Tenure",
-            "Balance",
-            "Number of Products",
-            "Has Credit Card",
-            "Is Active Member",
-            "Estimated Salary",
-            "Prediction",
-            "Probability",
-            "Risk Level",
-        ];
-
-        const lines = [headers.join(",")];
-        rows.forEach((row) => {
-            const lineValues = [
-                row.dateDisplay,
-                row.customerId,
-                row.creditScore,
-                row.age,
-                row.tenure,
-                row.balance,
-                row.numOfProducts,
-                row.hasCreditCard ? "Yes" : "No",
-                row.isActiveMember ? "Active" : "Inactive",
-                row.estimatedSalary,
-                row.predictionText,
-                `${row.probability.toFixed(2)}%`,
-                row.riskLevel,
-            ];
-            lines.push(lineValues.map((item) => JSON.stringify(item)).join(","));
+        const params = new URLSearchParams({
+            ajax: "1",
+            page: state.page,
+            rowsPerPage: state.rowsPerPage,
+            sortBy: state.sortBy,
+            sortOrder: state.sortOrder,
+            customerId: readValue("filterCustomerId"),
+            creditMin: readValue("filterCreditMin"),
+            creditMax: readValue("filterCreditMax"),
+            ageMin: readValue("filterAgeMin"),
+            ageMax: readValue("filterAgeMax"),
+            tenureMin: readValue("filterTenureMin"),
+            tenureMax: readValue("filterTenureMax"),
+            balanceMin: readValue("filterBalanceMin"),
+            balanceMax: readValue("filterBalanceMax"),
+            salaryMin: readValue("filterSalaryMin"),
+            salaryMax: readValue("filterSalaryMax"),
+            hasCard: readValue("filterHasCard"),
+            active: readValue("filterActive"),
+            riskLevel: readValue("filterRiskLevel"),
+            prediction: readValue("filterPrediction"),
+            probMin: readValue("filterProbabilityMin"),
+            probMax: readValue("filterProbabilityMax")
         });
 
-        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "analyst-prediction-report.csv";
-        link.click();
-        URL.revokeObjectURL(link.href);
-    };
-
-    const applyFiltersAndSort = () => {
-        const customerQuery = readText("filterCustomerId").toLowerCase();
-        const creditMin = readNumber("filterCreditMin");
-        const creditMax = readNumber("filterCreditMax");
-        const ageMin = readNumber("filterAgeMin");
-        const ageMax = readNumber("filterAgeMax");
-        const tenureMin = readNumber("filterTenureMin");
-        const tenureMax = readNumber("filterTenureMax");
-        const balanceMin = readNumber("filterBalanceMin");
-        const balanceMax = readNumber("filterBalanceMax");
-        const salaryMin = readNumber("filterSalaryMin");
-        const salaryMax = readNumber("filterSalaryMax");
-        const hasCard = readText("filterHasCard");
-        const activeMember = readText("filterActive");
-        const riskLevel = readText("filterRiskLevel");
-        const prediction = readText("filterPrediction");
-        const probabilityMin = readNumber("filterProbabilityMin");
-        const probabilityMax = readNumber("filterProbabilityMax");
-
-        const filtered = normalizedRows.filter((row) => {
-            if (customerQuery && !row.customerId.toLowerCase().includes(customerQuery)) return false;
-            if (!withinMinMax(row.creditScore, creditMin, creditMax)) return false;
-            if (!withinMinMax(row.age, ageMin, ageMax)) return false;
-            if (!withinMinMax(row.tenure, tenureMin, tenureMax)) return false;
-            if (!withinMinMax(row.balance, balanceMin, balanceMax)) return false;
-            if (!withinMinMax(row.estimatedSalary, salaryMin, salaryMax)) return false;
-            if (!withinMinMax(row.probability, probabilityMin, probabilityMax)) return false;
-            if (hasCard === "yes" && !row.hasCreditCard) return false;
-            if (hasCard === "no" && row.hasCreditCard) return false;
-            if (activeMember === "active" && !row.isActiveMember) return false;
-            if (activeMember === "inactive" && row.isActiveMember) return false;
-            if (riskLevel && row.riskLevel !== riskLevel) return false;
-            if (prediction && row.predictionKey !== prediction) return false;
-            return true;
-        });
-
-        const sortBy = readText("sortBy") || "probability";
-        const sortOrder = readText("sortOrder") || "desc";
-
-        filtered.sort((a, b) => {
-            let compared = 0;
-            if (sortBy === "customerId") compared = a.customerId.localeCompare(b.customerId);
-            if (sortBy === "creditScore") compared = a.creditScore - b.creditScore;
-            if (sortBy === "age") compared = a.age - b.age;
-            if (sortBy === "tenure") compared = a.tenure - b.tenure;
-            if (sortBy === "balance") compared = a.balance - b.balance;
-            if (sortBy === "estimatedSalary") compared = a.estimatedSalary - b.estimatedSalary;
-            if (sortBy === "numOfProducts") compared = a.numOfProducts - b.numOfProducts;
-            if (sortBy === "probability") compared = a.probability - b.probability;
-            if (sortBy === "riskLevel") compared = riskRank(a.riskLevel) - riskRank(b.riskLevel);
-            return sortOrder === "asc" ? compared : compared * -1;
-        });
-
-        state.filteredSorted = filtered;
-        state.rowsPerPage = Number(rowsPerPageInput?.value || 25);
-        state.page = 1;
-        render();
+        try {
+            const response = await fetch(`/analyst/prediction-analysis?${params.toString()}`);
+            const result = await response.json();
+            
+            state.rows = (result.rows || []).map(processRow);
+            state.totalRows = result.total_count || 0;
+            state.totalPages = result.total_pages || 1;
+            state.page = result.page || 1;
+            
+            render();
+            if (silent) showToast("Reports synchronized with latest employee data.", "info");
+        } catch (error) {
+            console.error("Filter Fetch Error:", error);
+            showToast("Failed to fetch records.", "error");
+        } finally {
+            state.isLoading = false;
+            if (loader) loader.style.display = "none";
+            if (loadingOverlay) loadingOverlay.classList.remove("active");
+            if (applyFiltersBtn) {
+                applyFiltersBtn.disabled = false;
+                applyFiltersBtn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Apply Filters';
+            }
+        }
     };
 
     const render = () => {
         if (!tbody || !pageInfo) return;
 
-        const totalRows = state.filteredSorted.length;
-        const totalPages = Math.max(1, Math.ceil(totalRows / state.rowsPerPage));
-        state.page = Math.max(1, Math.min(state.page, totalPages));
-
-        const start = (state.page - 1) * state.rowsPerPage;
-        const end = start + state.rowsPerPage;
-        const pageRows = state.filteredSorted.slice(start, end);
-
-        tbody.innerHTML = pageRows
-            .map((row) => {
-                const probabilityTone = probabilityClass(row.probability);
-                const predictionClass = row.predictionKey === "churn" ? "badge-prediction-churn" : "badge-prediction-stay";
-                const riskClass = row.riskLevel === "High" ? "badge-risk-high" : row.riskLevel === "Medium" ? "badge-risk-medium" : "badge-risk-low";
-                return `
-                    <tr>
-                        <td>${row.dateDisplay}</td>
-                        <td>${row.customerId}</td>
-                        <td>${row.creditScore}</td>
-                        <td>${row.age}</td>
-                        <td>${row.tenure}</td>
-                        <td>${money.format(row.balance)}</td>
-                        <td>${row.numOfProducts}</td>
-                        <td><span class="badge ${row.hasCreditCard ? "badge-binary-yes" : "badge-binary-no"}">${row.hasCreditCard ? "Yes" : "No"}</span></td>
-                        <td><span class="badge ${row.isActiveMember ? "badge-binary-active" : "badge-binary-inactive"}">${row.isActiveMember ? "Active" : "Inactive"}</span></td>
-                        <td>${money.format(row.estimatedSalary)}</td>
-                        <td><span class="badge ${predictionClass}">${row.predictionText}</span></td>
-                        <td>
-                            <div class="probability-cell">
-                                <strong>${row.probability.toFixed(2)}%</strong>
-                                <div class="probability-track"><span class="probability-fill ${probabilityTone}" style="width:${Math.max(0, Math.min(100, row.probability))}%"></span></div>
-                            </div>
-                        </td>
-                        <td><span class="badge ${riskClass}">${row.riskLevel} Risk</span></td>
-                    </tr>
-                `;
-            })
-            .join("");
-
-        if (empty) {
-            empty.style.display = totalRows ? "none" : "block";
+        if (state.rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="12" class="muted center" style="padding: 60px; text-align: center;"><i class="fa-solid fa-database" style="font-size: 24px; display: block; margin-bottom: 12px; opacity: 0.5;"></i>No records match the current view.</td></tr>';
+            if (empty) empty.style.display = "block";
+        } else {
+            if (empty) empty.style.display = "none";
+            tbody.innerHTML = state.rows
+                .map((row) => {
+                    const riskClass = row.riskLevel === "High" ? "risk-high" : row.riskLevel === "Medium" ? "risk-medium" : "risk-low";
+                    const badgeClass = row.riskLevel === "High" ? "high" : row.riskLevel === "Medium" ? "medium" : "low";
+                    const predBadgeClass = row.predictionKey === "churn" ? "high" : "low";
+                    
+                    return `
+                        <tr class="${riskClass}">
+                            <td><small class="muted">${row.date_display}</small></td>
+                            <td><strong>${row.customerId}</strong></td>
+                            <td>${row.CreditScore}</td>
+                            <td>${row.Age}</td>
+                            <td>${row.Tenure}y</td>
+                            <td>${money.format(row.Balance)}</td>
+                            <td>${money.format(row.EstimatedSalary)}</td>
+                            <td><span class="badge ${row.HasCrCard ? "badge-success" : "badge-soft"}">${row.HasCrCard ? "Yes" : "No"}</span></td>
+                            <td><span class="badge ${row.IsActiveMember ? "badge-success" : "badge-soft"}">${row.IsActiveMember ? "Yes" : "No"}</span></td>
+                            <td><span class="badge ${predBadgeClass}">${row.predictionText}</span></td>
+                            <td><strong>${row.probability.toFixed(1)}%</strong></td>
+                            <td><span class="badge ${badgeClass}">${row.riskLevel}</span></td>
+                            <td><small>${row.entered_by || '-'}</small></td>
+                        </tr>
+                    `;
+                })
+                .join("");
         }
 
-        pageInfo.textContent = `Page ${state.page} of ${totalPages} (${totalRows} record${totalRows === 1 ? "" : "s"})`;
-        if (prevBtn) prevBtn.disabled = state.page <= 1;
-        if (nextBtn) nextBtn.disabled = state.page >= totalPages;
+        pageInfo.textContent = `Page ${state.page} of ${state.totalPages} (${state.totalRows} total records)`;
+        if (prevBtn) prevBtn.disabled = state.page <= 1 || state.isLoading;
+        if (nextBtn) nextBtn.disabled = state.page >= state.totalPages || state.isLoading;
     };
 
+    // Event Listeners
     if (form) {
-        form.addEventListener("submit", (event) => {
-            event.preventDefault();
-            applyFiltersAndSort();
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            state.page = 1;
+            fetchFilteredData();
         });
     }
 
-    if (clearBtn && form) {
+    if (clearBtn) {
         clearBtn.addEventListener("click", () => {
             form.reset();
-            if (sortByInput) sortByInput.value = "probability";
-            if (sortOrderInput) sortOrderInput.value = "desc";
-            if (rowsPerPageInput) rowsPerPageInput.value = "25";
-            applyFiltersAndSort();
-        });
-    }
-
-    if (sortByInput) sortByInput.addEventListener("change", applyFiltersAndSort);
-    if (sortOrderInput) sortOrderInput.addEventListener("change", applyFiltersAndSort);
-    if (rowsPerPageInput) {
-        rowsPerPageInput.addEventListener("change", () => {
-            state.rowsPerPage = Number(rowsPerPageInput.value || 25);
             state.page = 1;
-            render();
+            fetchFilteredData();
         });
     }
 
-    if (prevBtn) {
-        prevBtn.addEventListener("click", () => {
-            state.page -= 1;
-            render();
+    rowsPerPageInput?.addEventListener("change", () => {
+        state.rowsPerPage = Number(rowsPerPageInput.value);
+        state.page = 1;
+        fetchFilteredData();
+    });
+
+    prevBtn?.addEventListener("click", () => {
+        if (state.page > 1) {
+            state.page--;
+            fetchFilteredData();
+        }
+    });
+
+    nextBtn?.addEventListener("click", () => {
+        if (state.page < state.totalPages) {
+            state.page++;
+            fetchFilteredData();
+        }
+    });
+
+    const searchInput = document.getElementById("filterCustomerId");
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener("input", () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                state.page = 1;
+                fetchFilteredData(true);
+            }, 500);
         });
     }
 
-    if (nextBtn) {
-        nextBtn.addEventListener("click", () => {
-            state.page += 1;
-            render();
-        });
-    }
-
-    if (exportBtn) {
-        exportBtn.addEventListener("click", () => {
-            if (!state.filteredSorted.length) {
-                showToast("No filtered rows available for CSV export.");
-                return;
+    // Column Sorting (For Reports Page)
+    document.querySelectorAll(".enterprise-table th[data-sort]").forEach(th => {
+        th.addEventListener("click", () => {
+            const field = th.dataset.sort;
+            if (state.sortBy === field) {
+                state.sortOrder = state.sortOrder === "asc" ? "desc" : "asc";
+            } else {
+                state.sortBy = field;
+                state.sortOrder = "desc";
             }
-            exportFilteredCsv(state.filteredSorted);
-            showToast("Filtered CSV export generated.");
+            
+            // Update UI icons
+            document.querySelectorAll(".enterprise-table th i").forEach(i => i.className = "fa-solid fa-sort");
+            const icon = th.querySelector("i");
+            if (icon) icon.className = state.sortOrder === "asc" ? "fa-solid fa-sort-up" : "fa-solid fa-sort-down";
+            
+            state.page = 1;
+            fetchFilteredData();
         });
-    }
+    });
 
-    applyFiltersAndSort();
+    const exportFilteredCsv = (rows, filename) => {
+        const headers = ["Date", "Customer ID", "Credit Score", "Age", "Tenure", "Balance", "Has CC", "Active", "Salary", "Prediction", "Prob (%)", "Risk", "Entered By"];
+        const lines = [headers.join(",")];
+        rows.forEach(r => {
+            const row = [r.date_display, r.customerId, r.CreditScore, r.Age, r.Tenure, r.Balance, r.HasCrCard?"Yes":"No", r.IsActiveMember?"Yes":"No", r.EstimatedSalary, r.predictionText, r.probability.toFixed(2), r.riskLevel, r.entered_by];
+            lines.push(row.map(v => JSON.stringify(String(v))).join(","));
+        });
+        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+    };
+
+    const exportFilteredPdf = (rows) => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF("l", "pt", "a4");
+        
+        doc.setFontSize(20);
+        doc.setTextColor(93, 110, 255);
+        doc.text("Customer Churn Prediction Report", 40, 50);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 70);
+        doc.text(`Total Records: ${state.totalRows}`, 40, 85);
+
+        const tableData = rows.map(r => [
+            r.date_display,
+            r.customerId,
+            r.CreditScore,
+            r.Age,
+            money.format(r.Balance),
+            r.IsActiveMember ? "Yes" : "No",
+            r.predictionText,
+            `${r.probability.toFixed(1)}%`,
+            r.riskLevel
+        ]);
+
+        doc.autoTable({
+            startY: 105,
+            head: [["Date", "Customer ID", "Credit", "Age", "Balance", "Active", "Result", "Prob", "Risk"]],
+            body: tableData,
+            theme: "grid",
+            headStyles: { fillColor: [93, 110, 255], fontSize: 9, cellPadding: 8 },
+            styles: { fontSize: 8, cellPadding: 6 },
+            columnStyles: { 8: { fontStyle: "bold" } }
+        });
+
+        doc.save("churn-report.pdf");
+    };
+
+    exportCsvBtn?.addEventListener("click", () => {
+        if (!state.rows.length) return showToast("No records to export.");
+        exportFilteredCsv(state.rows, "churn-report.csv");
+        showToast("Exporting to CSV...");
+    });
+
+    exportExcelBtn?.addEventListener("click", () => {
+        if (!state.rows.length) return showToast("No records to export.");
+        exportFilteredCsv(state.rows, "churn-report.csv"); // Excel compatible
+        showToast("Exporting to Excel (CSV format)...");
+    });
+
+    exportPdfBtn?.addEventListener("click", () => {
+        if (!state.rows.length) return showToast("No records to export.");
+        if (!window.jspdf) {
+            showToast("PDF library not loaded.", "error");
+            return;
+        }
+        exportFilteredPdf(state.rows);
+        showToast("Generating PDF...");
+    });
+
+    fetchFilteredData();
+
+    // Live Sync: Refresh reports data every 15 seconds
+    setInterval(() => {
+        if (!state.isLoading && state.page === 1) {
+            fetchFilteredData(true); // silent refresh
+        }
+    }, 15000);
 }
+
 
 function initRoleDashboards() {
     if (pageId() === "admin-analytics") {
@@ -1140,425 +1150,450 @@ function initRoleDashboards() {
     }
 
     if (pageId() === "analyst-dashboard") {
-        const node = document.getElementById("analystDashboardData");
-        if (!node) return;
-        let data = {};
+        const dataNode = document.getElementById("analystDashboardData");
+        if (!dataNode) return;
+        let originalData = {};
         try {
-            data = JSON.parse(node.textContent || "{}");
+            originalData = JSON.parse(dataNode.textContent || "{}");
         } catch {
-            data = {};
+            originalData = {};
         }
 
-        const formatNumber = (value) => Number(value || 0).toLocaleString();
-        const pct = (value) => `${Number(value || 0).toFixed(2)}%`;
+        const rawRows = Array.isArray(originalData.all_data) ? originalData.all_data : [];
+        let filteredRows = [...rawRows];
+        let charts = {};
 
-        const setText = (id, value) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = value;
+        const kpiElements = {
+            total: document.getElementById("kpiTotalPredictions"),
+            churn: document.getElementById("kpiChurnRate"),
+            retained: document.getElementById("kpiRetained"),
+            highRisk: document.getElementById("kpiHighRisk"),
+            avgProb: document.getElementById("kpiAvgProb"),
+            avgCredit: document.getElementById("kpiAvgCredit")
         };
 
-        const renderUpdatedAt = (isoDate) => {
-            const updated = document.getElementById("analystUpdatedAt");
-            if (!updated) return;
-            updated.textContent = isoDate
-                ? `Updated ${formatDateTimeDisplay(isoDate)}`
-                : `Updated ${formatDateTimeDisplay(new Date().toISOString())}`;
-        };
 
-        const renderKpis = (payload) => {
-            const k = payload?.kpis || {};
-            setText("kpiTotalPredictions", formatNumber(k.total_predictions));
-            setText("kpiTodayPredictions", formatNumber(k.predictions_today));
-            setText("kpiHighRisk", formatNumber(k.high_risk));
-            setText("kpiMediumRisk", formatNumber(k.medium_risk));
-            setText("kpiLowRisk", formatNumber(k.low_risk));
-            setText("kpiAverageProbability", pct(k.average_probability));
+        // --- CHART INITIALIZATION ---
 
-            const total = Number(k.total_predictions || 0);
-            const high = Number(k.high_risk || 0);
-            const medium = Number(k.medium_risk || 0);
-            const low = Number(k.low_risk || 0);
-            const today = Number(k.predictions_today || 0);
-            const distTotal = high + medium + low;
-
-            setText("kpiTotalPredictionsMeta", total ? `Dataset coverage: ${total} predictions` : "No predictions captured yet");
-            setText("kpiTodayPredictionsMeta", today ? `${today} predictions generated today` : "No predictions generated today");
-            setText(
-                "kpiHighRiskMeta",
-                distTotal ? `${((high / distTotal) * 100).toFixed(1)}% of all risk segments` : "Risk segmentation pending"
-            );
-            setText(
-                "kpiMediumRiskMeta",
-                distTotal ? `${((medium / distTotal) * 100).toFixed(1)}% of all risk segments` : "Risk segmentation pending"
-            );
-            setText(
-                "kpiLowRiskMeta",
-                distTotal ? `${((low / distTotal) * 100).toFixed(1)}% of all risk segments` : "Risk segmentation pending"
-            );
-            setText(
-                "kpiAverageProbabilityMeta",
-                total ? `Based on ${total} records` : "Waiting for prediction records"
-            );
-        };
-
-        const renderDonut = (payload) => {
-            const dist = payload?.risk_distribution || {};
-            const high = Number(dist.High || 0);
-            const medium = Number(dist.Medium || 0);
-            const low = Number(dist.Low || 0);
-            const total = high + medium + low;
-
-            const highPct = total ? (high / total) * 100 : 0;
-            const medPct = total ? (medium / total) * 100 : 0;
-            const lowPct = total ? (low / total) * 100 : 0;
-
-            const donut = document.getElementById("riskDonutChart");
-            if (donut) {
-                donut.style.background = total
-                    ? `conic-gradient(#ef4444 0 ${highPct}%, #f59e0b ${highPct}% ${highPct + medPct}%, #22c55e ${highPct + medPct}% 100%)`
-                    : "conic-gradient(rgba(148,163,184,0.5) 0 100%)";
-                donut.innerHTML = `<div class=\"analyst-donut-center\"><strong>${total}</strong><small>Total</small></div>`;
-            }
-
-            const legend = document.getElementById("riskDonutLegend");
-            if (legend) {
-                legend.innerHTML = `
-                    <div><span><i class=\"fa-solid fa-circle\" style=\"color:#ef4444\"></i> High Risk</span><strong>${high}</strong></div>
-                    <div><span><i class=\"fa-solid fa-circle\" style=\"color:#f59e0b\"></i> Medium Risk</span><strong>${medium}</strong></div>
-                    <div><span><i class=\"fa-solid fa-circle\" style=\"color:#22c55e\"></i> Low Risk</span><strong>${low}</strong></div>
-                `;
-            }
-        };
-
-        const renderTrend = (payload) => {
-            const points = Array.isArray(payload?.trend_points) ? payload.trend_points : [];
-            const svg = document.getElementById("predictionTrendChart");
-            const meta = document.getElementById("predictionTrendMeta");
-            if (!svg) return;
-
-            if (!points.length) {
-                svg.innerHTML = "<text x='50%' y='50%' text-anchor='middle' fill='currentColor' opacity='0.65'>No trend data yet</text>";
-                if (meta) meta.textContent = "No trend change detected yet.";
-                return;
-            }
-
-            const values = points.map((p) => Number(p.value || 0));
-            const maxV = Math.max(...values, 1);
-            const minV = Math.min(...values, 0);
-            const width = 640;
-            const height = 240;
-            const padX = 30;
-            const padY = 24;
-            const drawableW = width - padX * 2;
-            const drawableH = height - padY * 2;
-
-            const toX = (index) => padX + (index * drawableW) / Math.max(points.length - 1, 1);
-            const toY = (value) => {
-                if (maxV === minV) return padY + drawableH / 2;
-                return padY + drawableH - ((value - minV) / (maxV - minV)) * drawableH;
+        const initCharts = () => {
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                }
             };
 
-            const coordinates = points.map((p, i) => ({
-                x: toX(i),
-                y: toY(Number(p.value || 0)),
-                label: String(p.label || "-"),
-                value: Number(p.value || 0),
-            }));
+            // Donut: Churn Distribution
+            charts.churnDist = new Chart(document.getElementById('churnDistChart'), {
+                type: 'doughnut',
+                data: { labels: ['Retained', 'Churned'], datasets: [{ data: [0, 0], backgroundColor: ['#22c55e', '#ef4444'], borderWidth: 0 }] },
+                options: { ...commonOptions, cutout: '70%' }
+            });
 
-            if (meta) {
-                const latest = coordinates[coordinates.length - 1]?.value || 0;
-                const previous = coordinates[coordinates.length - 2]?.value || 0;
-                const delta = latest - previous;
-                meta.textContent = delta === 0
-                    ? `Latest activity stable at ${latest} predictions.`
-                    : delta > 0
-                      ? `Prediction activity increased by ${delta} vs previous point.`
-                      : `Prediction activity decreased by ${Math.abs(delta)} vs previous point.`;
-            }
+            // Bar: Risk Level
+            charts.riskLevel = new Chart(document.getElementById('riskLevelChart'), {
+                type: 'bar',
+                data: { labels: ['Low', 'Medium', 'High'], datasets: [{ label: 'Customers', data: [0, 0, 0], backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'], borderRadius: 6 }] },
+                options: commonOptions
+            });
 
-            const linePath = coordinates.map((c, i) => `${i === 0 ? "M" : "L"}${c.x},${c.y}`).join(" ");
-            const areaPath = `${linePath} L ${coordinates[coordinates.length - 1].x},${height - padY} L ${coordinates[0].x},${height - padY} Z`;
+            // Line: Trend
+            charts.trend = new Chart(document.getElementById('trendChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Predictions', data: [], borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.1)', fill: true, tension: 0.4 }] },
+                options: commonOptions
+            });
 
-            svg.innerHTML = `
-                <defs>
-                    <linearGradient id="trendGradientFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="rgba(34,211,238,0.45)"/>
-                        <stop offset="100%" stop-color="rgba(34,211,238,0.03)"/>
-                    </linearGradient>
-                </defs>
-                <path d="${areaPath}" fill="url(#trendGradientFill)"></path>
-                <path d="${linePath}" fill="none" stroke="#22d3ee" stroke-width="3" stroke-linecap="round"></path>
-                ${coordinates
-                    .map(
-                        (c) =>
-                            `<circle cx="${c.x}" cy="${c.y}" r="4" fill="#0ea5e9"><title>${c.label}: ${c.value}</title></circle>`
-                    )
-                    .join("")}
-                ${coordinates
-                    .filter((_, i) => i === 0 || i === coordinates.length - 1 || i % 2 === 0)
-                    .map(
-                        (c) =>
-                            `<text x="${c.x}" y="${height - 6}" font-size="10" text-anchor="middle" fill="currentColor" opacity="0.72">${c.label.slice(5)}</text>`
-                    )
-                    .join("")}
-            `;
+            // Bar: Credit Score
+            charts.creditScore = new Chart(document.getElementById('creditScoreChart'), {
+                type: 'bar',
+                data: { labels: ['300-500', '501-650', '651-750', '751-900'], datasets: [{ label: 'Avg Prob (%)', data: [0, 0, 0, 0], backgroundColor: '#5d6eff', borderRadius: 6 }] },
+                options: commonOptions
+            });
+
+            // Bar: Age Group
+            charts.ageGroup = new Chart(document.getElementById('ageGroupChart'), {
+                type: 'bar',
+                data: { labels: ['18-25', '26-35', '36-45', '46-60', '60+'], datasets: [{ label: 'Churn Count', data: [0, 0, 0, 0, 0], backgroundColor: '#ec4899', borderRadius: 6 }] },
+                options: commonOptions
+            });
+
+            // Bar: Active Member
+            charts.activeMember = new Chart(document.getElementById('activeMemberChart'), {
+                type: 'bar',
+                data: { labels: ['Active', 'Inactive'], datasets: [{ label: 'Churn Rate %', data: [0, 0], backgroundColor: ['#10b981', '#f43f5e'], borderRadius: 6 }] },
+                options: commonOptions
+            });
+
+            // Bar: CC usage
+            charts.creditCard = new Chart(document.getElementById('creditCardChart'), {
+                type: 'bar',
+                data: { labels: ['With Card', 'Without Card'], datasets: [{ label: 'Churn Rate %', data: [0, 0], backgroundColor: ['#6366f1', '#8b5cf6'], borderRadius: 6 }] },
+                options: commonOptions
+            });
+
+            // Area: Balance vs Prob
+            charts.balance = new Chart(document.getElementById('balanceChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Churn Prob %', data: [], borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3 }] },
+                options: commonOptions
+            });
         };
 
-        const renderFeatureImpacts = (payload) => {
-            const rows = Array.isArray(payload?.feature_impacts) ? payload.feature_impacts : [];
-            const nodeList = document.getElementById("featureImpactChart");
-            if (!nodeList) return;
+        // --- DATA PROCESSING ---
 
-            if (!rows.length) {
-                nodeList.innerHTML = "<p class='muted'>No feature impact data available yet.</p>";
-                return;
-            }
+        const updateDashboard = () => {
+            const total = rawRows.length;
+            const churned = rawRows.filter(r => (r.probability || 0) >= 50).length;
+            const retained = total - churned;
+            const highRisk = rawRows.filter(r => (r.probability || 0) >= 70).length;
+            const avgProb = total ? rawRows.reduce((s, r) => s + (r.probability || 0), 0) / total : 0;
+            const avgCredit = total ? rawRows.reduce((s, r) => s + (r.CreditScore || 0), 0) / total : 0;
 
-            nodeList.innerHTML = rows
-                .map((row) => {
-                    const score = Math.min(100, Math.max(0, Number(row.score || 0)));
-                    return `
-                        <div class="analyst-impact-row">
-                            <div class="analyst-impact-head">
-                                <strong>${row.feature || "Feature"}</strong>
-                                <span>${score.toFixed(1)}</span>
-                            </div>
-                            <div class="analyst-impact-track"><span style="width:${score}%"></span></div>
-                            <small class="muted">High mean: ${Number(row.high_mean || 0).toFixed(2)} | Low mean: ${Number(row.low_mean || 0).toFixed(2)}</small>
-                        </div>
-                    `;
-                })
-                .join("");
-        };
+            // Update KPIs
+            if (kpiElements.total) kpiElements.total.textContent = total.toLocaleString();
+            if (kpiElements.churn) kpiElements.churn.textContent = `${total ? (churned / total * 100).toFixed(1) : 0}%`;
+            if (kpiElements.retained) kpiElements.retained.textContent = retained.toLocaleString();
+            if (kpiElements.highRisk) kpiElements.highRisk.textContent = highRisk.toLocaleString();
+            if (kpiElements.avgProb) kpiElements.avgProb.textContent = `${avgProb.toFixed(1)}%`;
+            if (kpiElements.avgCredit) kpiElements.avgCredit.textContent = Math.round(avgCredit).toLocaleString();
 
-        const renderRecentTable = (payload) => {
-            const rows = Array.isArray(payload?.recent_predictions) ? payload.recent_predictions : [];
-            const tbody = document.getElementById("analystRecentTableBody");
-            if (!tbody) return;
+            // Update Charts
+            charts.churnDist.data.datasets[0].data = [retained, churned];
+            charts.churnDist.update();
 
-            if (!rows.length) {
-                tbody.innerHTML = "<tr><td colspan='6' class='muted'>No predictions yet.</td></tr>";
-                return;
-            }
+            const riskCounts = [
+                filteredRows.filter(r => (r.probability || 0) < 40).length,
+                filteredRows.filter(r => (r.probability || 0) >= 40 && (r.probability || 0) < 70).length,
+                highRisk
+            ];
+            charts.riskLevel.data.datasets[0].data = riskCounts;
+            charts.riskLevel.update();
 
-            tbody.innerHTML = rows
-                .map((row) => {
-                    const risk = String(row.risk_level || "Low");
-                    const riskClass = risk.toLowerCase();
-                    return `
-                        <tr>
-                            <td>${row.CustomerId || "-"}</td>
-                            <td>${Number(row.CreditScore || 0).toFixed(0)}</td>
-                            <td>${Number(row.Balance || 0).toLocaleString()}</td>
-                            <td>${Number(row.probability || 0).toFixed(2)}%</td>
-                            <td><span class="badge ${riskClass}">${risk}</span></td>
-                            <td>${row.date_display || formatDateTimeDisplay(row.date)}</td>
-                        </tr>
-                    `;
-                })
-                .join("");
-        };
+            // Trend (group by date)
+            const trendMap = {};
+            rawRows.forEach(r => {
+                const d = r.date ? r.date.split('T')[0] : 'Unknown';
+                trendMap[d] = (trendMap[d] || 0) + 1;
+            });
+            const sortedDates = Object.keys(trendMap).sort().slice(-15);
+            charts.trend.data.labels = sortedDates;
+            charts.trend.data.datasets[0].data = sortedDates.map(d => trendMap[d]);
+            charts.trend.update();
 
-        const renderAlerts = (payload) => {
-            const alerts = Array.isArray(payload?.risk_alerts) ? payload.risk_alerts : [];
-            const wrap = document.getElementById("riskAlertsList");
-            const summary = document.getElementById("riskAlertsSummary");
-            if (!wrap) return;
+            // Age & Credit Score Bins
+            const ageBins = [0, 0, 0, 0, 0];
+            const csBins = [0, 0, 0, 0];
+            const csSums = [0, 0, 0, 0];
+            rawRows.forEach(r => {
+                const age = r.Age || 0;
+                if (age <= 25) ageBins[0] += ((r.probability || 0) >= 50 ? 1 : 0);
+                else if (age <= 35) ageBins[1] += ((r.probability || 0) >= 50 ? 1 : 0);
+                else if (age <= 45) ageBins[2] += ((r.probability || 0) >= 50 ? 1 : 0);
+                else if (age <= 60) ageBins[3] += ((r.probability || 0) >= 50 ? 1 : 0);
+                else ageBins[4] += ((r.probability || 0) >= 50 ? 1 : 0);
 
-            if (!alerts.length) {
-                wrap.innerHTML = "<p class='muted'>No risk alerts available.</p>";
-                if (summary) summary.textContent = "Monitoring high-risk, prediction spikes, and inactivity.";
-                return;
-            }
+                const cs = r.CreditScore || 0;
+                let idx = cs <= 500 ? 0 : cs <= 650 ? 1 : cs <= 750 ? 2 : 3;
+                csBins[idx]++;
+                csSums[idx] += (r.probability || 0);
+            });
+            charts.ageGroup.data.datasets[0].data = ageBins;
+            charts.ageGroup.update();
+            charts.creditScore.data.datasets[0].data = csBins.map((c, i) => c ? csSums[i] / c : 0);
+            charts.creditScore.update();
 
-            if (summary) {
-                const highCount = alerts.filter((item) => String(item?.severity || "").toLowerCase() === "high").length;
-                summary.textContent = highCount
-                    ? `${highCount} high-priority risk alert${highCount > 1 ? "s" : ""} require attention.`
-                    : "No high-priority alerts right now.";
-            }
+            // Behavior Comparisons
+            const activeRows = rawRows.filter(r => r.IsActiveMember == 1);
+            const inactiveRows = rawRows.filter(r => r.IsActiveMember == 0);
+            const ccRows = rawRows.filter(r => r.HasCrCard == 1);
+            const noCcRows = rawRows.filter(r => r.HasCrCard == 0);
 
-            wrap.innerHTML = alerts
-                .map((alert) => {
-                    const severity = String(alert.severity || "low").toLowerCase();
-                    const icon = severity === "high" ? "fa-triangle-exclamation" : severity === "medium" ? "fa-bell" : "fa-circle-info";
-                    return `
-                        <article class="analyst-alert ${severity}">
-                            <div class="analyst-alert-icon"><i class="fa-solid ${icon}"></i></div>
-                            <div>
-                                <h4>${alert.title || "Risk Alert"}</h4>
-                                <p>${alert.description || ""}</p>
-                            </div>
-                        </article>
-                    `;
-                })
-                .join("");
-        };
+            const getRate = (rows) => rows.length ? (rows.filter(r => (r.probability || 0) >= 50).length / rows.length * 100) : 0;
+            charts.activeMember.data.datasets[0].data = [getRate(activeRows), getRate(inactiveRows)];
+            charts.activeMember.update();
+            charts.creditCard.data.datasets[0].data = [getRate(ccRows), getRate(noCcRows)];
+            charts.creditCard.update();
 
-        const renderAll = (payload) => {
-            renderUpdatedAt(payload?.generated_at);
-            renderKpis(payload);
-            renderDonut(payload);
-            renderTrend(payload);
-            renderFeatureImpacts(payload);
-            renderRecentTable(payload);
-            renderAlerts(payload);
-        };
+            // Balance Area
+            const balanceStep = 20000;
+            const balMap = {};
+            rawRows.forEach(r => {
+                const b = Math.floor((r.Balance || 0) / balanceStep) * balanceStep;
+                if (!balMap[b]) balMap[b] = { sum: 0, count: 0 };
+                balMap[b].sum += (r.probability || 0);
+                balMap[b].count++;
+            });
+            const sortedBals = Object.keys(balMap).sort((a, b) => Number(a) - Number(b)).slice(0, 15);
+            charts.balance.data.labels = sortedBals.map(b => `$${Number(b) / 1000}k`);
+            charts.balance.data.datasets[0].data = sortedBals.map(b => balMap[b].sum / balMap[b].count);
+            charts.balance.update();
 
-        const estimateChurnFromSimulator = (input) => {
-            let score = 8;
 
-            if (input.creditScore < 450) score += 34;
-            else if (input.creditScore < 600) score += 18;
-
-            if (input.balance < 10000) score += 20;
-            else if (input.balance < 50000) score += 9;
-
-            if (input.age > 58) score += 10;
-            else if (input.age < 25) score += 6;
-
-            if (input.tenure <= 2) score += 18;
-            else if (input.tenure <= 5) score += 8;
-
-            if (!input.hasCard) score += 12;
-            if (!input.isActive) score += 22;
-
-            if (input.salary < 30000) score += 8;
-
-            return Math.min(99, Math.max(1, score));
-        };
-
-        const renderSimulatorResult = (probability, level, explanation) => {
-            const probNode = document.getElementById("simProbabilityValue");
-            const badgeNode = document.getElementById("simRiskBadge");
-            const progressNode = document.getElementById("simProgressBar");
-            const textNode = document.getElementById("simExplanation");
-            const ringNode = document.getElementById("simRing");
-            const ringText = document.getElementById("simRingText");
-            const label = riskLabel(level);
-
-            if (probNode) probNode.textContent = `${Number(probability).toFixed(1)}%`;
-            if (ringText) ringText.textContent = `${Number(probability).toFixed(0)}%`;
-            if (progressNode) progressNode.style.width = `${Math.min(100, Math.max(0, Number(probability)))}%`;
-            if (ringNode) ringNode.style.setProperty("--risk-percent", `${Math.min(100, Math.max(0, Number(probability)))}%`);
-
-            if (badgeNode) {
-                badgeNode.className = `badge ${level}`;
-                badgeNode.textContent = label;
-            }
-
-            if (textNode) {
-                textNode.textContent = explanation ||
-                    (level === "high"
-                        ? "High churn likelihood detected. Recommend immediate retention intervention."
-                        : level === "medium"
-                          ? "Moderate churn risk. Recommend proactive engagement and closer monitoring."
-                          : "Low churn risk. Profile appears stable with healthy engagement indicators.");
+            // Update Latest Predictions Table
+            const latestTableBody = document.getElementById("latestPredictionsBody");
+            if (latestTableBody) {
+                const recentDocs = [...rawRows].slice(0, 10);
+                if (recentDocs.length === 0) {
+                    latestTableBody.innerHTML = "<tr><td colspan='5' class='muted center' style='padding:20px;'>No prediction records available.</td></tr>";
+                } else {
+                    latestTableBody.innerHTML = recentDocs.map(r => {
+                        const prob = r.probability || 0;
+                        const risk = (r.risk_level || 'Low').toLowerCase();
+                        return `
+                            <tr>
+                                <td><strong>${r.CustomerId || '-'}</strong></td>
+                                <td>${r.prediction || '-'}</td>
+                                <td><span class="badge ${risk}">${prob.toFixed(2)}%</span></td>
+                                <td>${r.entered_by || '-'}</td>
+                                <td><small class="muted">${r.date_display || '-'}</small></td>
+                            </tr>
+                        `;
+                    }).join("");
+                }
             }
         };
 
-        const initSimulator = () => {
-            const form = document.getElementById("churnSimulatorForm");
-            if (!form) return;
 
-            form.addEventListener("submit", async (event) => {
-                event.preventDefault();
-                const input = {
-                    age: Number(document.getElementById("simAge")?.value || 0),
-                    creditScore: Number(document.getElementById("simCreditScore")?.value || 0),
-                    balance: Number(document.getElementById("simBalance")?.value || 0),
-                    tenure: Number(document.getElementById("simTenure")?.value || 0),
-                    hasCard: Number(document.getElementById("simHasCard")?.value || 1) === 1,
-                    isActive: Number(document.getElementById("simIsActive")?.value || 1) === 1,
-                    salary: Number(document.getElementById("simSalary")?.value || 0),
-                };
+        // --- EXPORT LOGIC ---
 
-                const payload = {
-                    Age: input.age,
-                    CreditScore: input.creditScore,
-                    Balance: input.balance,
-                    Tenure: input.tenure,
-                    HasCrCard: input.hasCard ? 1 : 0,
-                    IsActiveMember: input.isActive ? 1 : 0,
-                    EstimatedSalary: input.salary,
-                };
+        const downloadCSV = (rows, filename) => {
+            const headers = ["CustomerId", "RiskLevel", "Probability", "CreditScore", "Age", "Balance", "IsActive", "HasCrCard", "Prediction", "Date"];
+            const csvData = rows.map(r => [
+                r.CustomerId,
+                getRiskLevel(r.probability || 0),
+                (r.probability || 0).toFixed(2),
+                r.CreditScore,
+                r.Age,
+                r.Balance,
+                r.IsActiveMember,
+                r.HasCrCard,
+                (r.probability >= 50 ? 'Churn' : 'Stay'),
+                r.date
+            ].join(","));
+            const blob = new Blob([[headers.join(",")].concat(csvData).join("\n")], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+        };
+
+        const downloadPDF = () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'pt');
+            doc.setFontSize(22);
+            doc.setTextColor(34, 211, 238);
+            doc.text("Analyst Churn Insight Report", 40, 60);
+            doc.setFontSize(12);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Generated on: ${new Date().toLocaleString()}`, 40, 85);
+            doc.text(`Total Records Analyzed: ${filteredRows.length}`, 40, 105);
+
+            const tableData = filteredRows.slice(0, 50).map(r => [
+                r.CustomerId,
+                getRiskLevel(r.probability || 0).toUpperCase(),
+                `${(r.probability || 0).toFixed(1)}%`,
+                r.CreditScore,
+                r.Age,
+                `$${(r.Balance || 0).toFixed(0)}`
+            ]);
+
+            doc.autoTable({
+                startY: 130,
+                head: [['Customer ID', 'Risk', 'Prob', 'Score', 'Age', 'Balance']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: { fillColor: [93, 110, 255] }
+            });
+
+            doc.save('analyst_churn_report.pdf');
+            showToast("PDF Report generated successfully.");
+        };
+
+        // --- EVENT LISTENERS ---
+
+        document.getElementById('exportCsvBtn')?.addEventListener('click', () => downloadCSV(rawRows, 'churn_data_export.csv'));
+        document.getElementById('exportExcelBtn')?.addEventListener('click', () => downloadCSV(rawRows, 'churn_analytics_export.csv')); // CSV is Excel compatible
+        document.getElementById('exportPdfBtn')?.addEventListener('click', downloadPDF);
+
+        // --- SIMULATOR LOGIC ---
+        const simForm = document.getElementById('simulatorForm');
+        const btnPredictSim = document.getElementById('btnPredictSim');
+        const btnResetSim = document.getElementById('btnResetSim');
+        const btnSaveSim = document.getElementById('btnSaveSim');
+        const simResultEmpty = document.querySelector('.sim-result-empty');
+        const simResultContent = document.querySelector('.sim-result-content');
+
+        if (simForm) {
+            simForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(simForm);
+                const payload = Object.fromEntries(formData.entries());
+
+                // UI Loading State
+                btnPredictSim.disabled = true;
+                btnPredictSim.querySelector('.btn-text').style.display = 'none';
+                btnPredictSim.querySelector('.btn-loader').style.display = 'inline-block';
 
                 try {
-                    const response = await fetch("/analyst/simulate", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                        },
-                        body: JSON.stringify(payload),
+                    // Remove NumOfProducts from payload
+                    const { NumOfProducts, ...cleanPayload } = payload;
+                    
+                    const response = await fetch('/analyst/simulate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(cleanPayload)
                     });
 
-                    if (response.ok) {
-                        const result = await response.json();
-                        const probability = Number(result?.probability || 0);
-                        const risk = String(result?.risk_level || "Low").toLowerCase();
-                        renderSimulatorResult(probability, risk, String(result?.explanation || ""));
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        showToast(result.error || "Simulation failed", "error");
                         return;
                     }
-                } catch {
-                    // Fall back to client-side estimation if API is unavailable.
+
+                    // Update UI with Result
+                    if (simResultEmpty) simResultEmpty.style.display = 'none';
+                    if (simResultContent) simResultContent.style.display = 'block';
+
+                    const prob = result.probability || 0;
+                    const probText = document.getElementById('simProbText');
+                    const gaugeFill = document.getElementById('simGaugeFill');
+                    const riskBadge = document.getElementById('simRiskBadge');
+                    const predictionText = document.getElementById('simPredictionText');
+                    const explanationText = document.getElementById('simExplanation');
+
+                    // Animate probability number
+                    let start = 0;
+                    const duration = 1000;
+                    const startTime = performance.now();
+
+                    const animate = (currentTime) => {
+                        const elapsed = currentTime - startTime;
+                        const progress = Math.min(elapsed / duration, 1);
+                        const currentProb = Math.floor(progress * prob);
+                        if (probText) probText.textContent = `${currentProb}%`;
+                        if (progress < 1) requestAnimationFrame(animate);
+                    };
+                    requestAnimationFrame(animate);
+
+                    // Update Gauge
+                    if (gaugeFill) {
+                        const circumference = 283;
+                        const offset = circumference - (prob / 100) * circumference;
+                        gaugeFill.style.strokeDashoffset = offset;
+                        
+                        // Color based on risk
+                        let color = '#22c55e'; // Green
+                        if (prob >= 70) color = '#ef4444'; // Red
+                        else if (prob >= 40) color = '#f59e0b'; // Yellow
+                        gaugeFill.style.stroke = color;
+                    }
+
+                    // Update Details
+                    if (riskBadge) {
+                        riskBadge.textContent = result.risk_level || '---';
+                        riskBadge.className = `badge ${result.risk_level?.toLowerCase() || ''}`;
+                    }
+                    if (predictionText) predictionText.textContent = result.prediction || '---';
+                    if (explanationText) explanationText.textContent = result.explanation || '';
+
+                    if (btnSaveSim) btnSaveSim.disabled = false;
+                    showToast("Simulation complete", "success");
+
+                } catch (err) {
+                    console.error("Simulator Error:", err);
+                    showToast("Network error. Try again.", "error");
+                } finally {
+                    btnPredictSim.disabled = false;
+                    btnPredictSim.querySelector('.btn-text').style.display = 'inline-block';
+                    btnPredictSim.querySelector('.btn-loader').style.display = 'none';
                 }
-
-                const probability = estimateChurnFromSimulator(input);
-                const level = getRiskLevel(probability);
-                renderSimulatorResult(
-                    probability,
-                    level,
-                    level === "high"
-                        ? "High churn likelihood: low activity or weak product linkage suggests immediate retention intervention."
-                        : level === "medium"
-                          ? "Moderate churn risk: monitor engagement and use proactive customer outreach to reduce attrition."
-                          : "Low churn risk: profile appears stable with healthy engagement indicators."
-                );
             });
-        };
 
-        const refreshFromServer = async () => {
+            btnResetSim?.addEventListener('click', () => {
+                simForm.reset();
+                if (simResultEmpty) simResultEmpty.style.display = 'block';
+                if (simResultContent) simResultContent.style.display = 'none';
+                if (btnSaveSim) btnSaveSim.disabled = true;
+            });
+
+
+            btnSaveSim?.addEventListener('click', async () => {
+                const formData = new FormData(simForm);
+                const payload = Object.fromEntries(formData.entries());
+                
+                // Get the probability and other results from the previous simulation
+                // These are stored in the UI or we can re-simulate on the server
+                // Better to just send the form data plus a flag
+                
+                btnSaveSim.disabled = true;
+                const originalHtml = btnSaveSim.innerHTML;
+                btnSaveSim.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...';
+
+                try {
+                    const response = await fetch('/analyst/save-simulation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+                    if (response.ok) {
+                        showToast("Prediction saved to official records.", "success");
+                        btnSaveSim.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
+                        setTimeout(() => {
+                            btnSaveSim.disabled = false;
+                            btnSaveSim.innerHTML = originalHtml;
+                        }, 3000);
+                    } else {
+                        showToast(result.error || "Failed to save", "error");
+                        btnSaveSim.disabled = false;
+                        btnSaveSim.innerHTML = originalHtml;
+                    }
+                } catch (err) {
+                    showToast("Network error while saving", "error");
+                    btnSaveSim.disabled = false;
+                    btnSaveSim.innerHTML = originalHtml;
+                }
+            });
+        }
+
+        document.getElementById('analystRefreshBtn')?.addEventListener('click', () => {
+            showToast("Refreshing data stream...");
+            location.reload();
+        });
+
+        // Initialize
+        initCharts();
+        updateDashboard();
+
+        // --- REAL-TIME SYNC ---
+        const syncData = async () => {
             try {
-                const response = await fetch("/analyst/dashboard/data", {
-                    headers: { Accept: "application/json" },
-                    cache: "no-store",
-                });
-                if (!response.ok) return;
-                const latest = await response.json();
-                data = latest || {};
-                renderAll(data);
-            } catch {
-                // Keep previous render in place when network request fails.
-            }
-        };
-
-        const initRefreshControls = () => {
-            const btn = document.getElementById("analystRefreshBtn");
-            if (btn) {
-                btn.addEventListener("click", () => {
-                    refreshFromServer();
-                });
-            }
-
-            document.addEventListener("visibilitychange", () => {
-                if (document.visibilityState === "visible") {
-                    refreshFromServer();
+                const res = await fetch('/analyst/dashboard/data');
+                const newData = await res.json();
+                if (newData && newData.all_data) {
+                    rawRows.length = 0;
+                    rawRows.push(...newData.all_data);
+                    filteredRows = [...rawRows];
+                    updateDashboard();
                 }
-            });
-
-            window.addEventListener("focus", () => {
-                refreshFromServer();
-            });
+            } catch (err) {
+                console.warn("Dashboard sync failed:", err);
+            }
         };
 
-        renderAll(data);
-        initSimulator();
-        initRefreshControls();
-
-        window.setInterval(() => {
-            refreshFromServer();
-        }, 8000);
+        // Poll every 15 seconds
+        setInterval(syncData, 15000);
     }
 }
 

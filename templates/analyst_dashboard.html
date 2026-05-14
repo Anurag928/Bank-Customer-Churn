@@ -2,147 +2,296 @@
 {% block page_id %}analyst-dashboard{% endblock %}
 {% block shell_title %}Analyst Dashboard{% endblock %}
 {% block title %}Analyst Dashboard{% endblock %}
+
 {% block content %}
-<section class="glass-card section-card reveal analyst-overview-shell">
-    <div class="section-header analyst-header">
-        <div>
-            <h1>Analyst Dashboard Overview</h1>
-            <p class="muted">Live churn intelligence across prediction streams, risk segments, and behavior signals.</p>
+<section class="analyst-dashboard-shell">
+    <!-- Top Action Bar -->
+    <div class="dash-action-bar reveal">
+        <div class="dash-welcome">
+            <h1>Live Churn Intelligence</h1>
+            <p class="muted">Enterprise-grade analytics for customer retention and behavior patterns.</p>
         </div>
-        <div class="analyst-refresh">
-            <span class="badge-soft"><i class="fa-solid fa-signal"></i> Live Insights</span>
-            <button id="analystRefreshBtn" type="button" class="btn btn-outline btn-sm"><i class="fa-solid fa-rotate"></i> Refresh</button>
-            <small id="analystUpdatedAt" class="muted">Updated just now</small>
+        <div class="dash-global-actions">
+            <div class="export-dropdown">
+                <button class="btn btn-primary" id="exportMainBtn"><i class="fa-solid fa-file-export"></i> Export Report</button>
+                <div class="export-menu">
+                    <button id="exportCsvBtn"><i class="fa-solid fa-file-csv"></i> CSV Data</button>
+                    <button id="exportExcelBtn"><i class="fa-solid fa-file-excel"></i> Excel Spreadsheet</button>
+                    <button id="exportPdfBtn"><i class="fa-solid fa-file-pdf"></i> PDF Summary</button>
+                </div>
+            </div>
+            <button id="analystRefreshBtn" class="btn btn-outline"><i class="fa-solid fa-rotate"></i> Refresh</button>
         </div>
     </div>
 
-    <div class="analyst-kpi-grid">
-        <article class="analyst-kpi-card glass-subcard">
-            <div class="analyst-kpi-head"><i class="fa-solid fa-database"></i><span>Total Predictions</span></div>
-            <p id="kpiTotalPredictions" class="analyst-kpi-value">0</p>
-            <small id="kpiTotalPredictionsMeta" class="analyst-kpi-meta muted">Across all prediction records</small>
-        </article>
-        <article class="analyst-kpi-card glass-subcard">
-            <div class="analyst-kpi-head"><i class="fa-regular fa-calendar-check"></i><span>Predictions Generated Today</span></div>
-            <p id="kpiTodayPredictions" class="analyst-kpi-value">0</p>
-            <small id="kpiTodayPredictionsMeta" class="analyst-kpi-meta muted">Vs. last 24 hours</small>
-        </article>
-        <article class="analyst-kpi-card glass-subcard tone-danger">
-            <div class="analyst-kpi-head"><i class="fa-solid fa-triangle-exclamation"></i><span>High Churn Risk</span></div>
-            <p id="kpiHighRisk" class="analyst-kpi-value">0</p>
-            <small id="kpiHighRiskMeta" class="analyst-kpi-meta muted">Risk segment count</small>
-        </article>
-        <article class="analyst-kpi-card glass-subcard tone-warning">
-            <div class="analyst-kpi-head"><i class="fa-solid fa-circle-half-stroke"></i><span>Medium Churn Risk</span></div>
-            <p id="kpiMediumRisk" class="analyst-kpi-value">0</p>
-            <small id="kpiMediumRiskMeta" class="analyst-kpi-meta muted">Risk segment count</small>
-        </article>
-        <article class="analyst-kpi-card glass-subcard tone-success">
-            <div class="analyst-kpi-head"><i class="fa-solid fa-shield-heart"></i><span>Low Churn Risk</span></div>
-            <p id="kpiLowRisk" class="analyst-kpi-value">0</p>
-            <small id="kpiLowRiskMeta" class="analyst-kpi-meta muted">Risk segment count</small>
-        </article>
-        <article class="analyst-kpi-card glass-subcard">
-            <div class="analyst-kpi-head"><i class="fa-solid fa-gauge-high"></i><span>Average Churn Probability</span></div>
-            <p id="kpiAverageProbability" class="analyst-kpi-value">0%</p>
-            <small id="kpiAverageProbabilityMeta" class="analyst-kpi-meta muted">Mean churn risk across all predictions</small>
-        </article>
+
+    <!-- KPI Summary Section -->
+    <div class="dash-kpi-deck reveal">
+        <div class="kpi-card glass-card">
+            <div class="kpi-icon"><i class="fa-solid fa-users"></i></div>
+            <div class="kpi-body">
+                <p class="label">Total Predictions</p>
+                <h2 id="kpiTotalPredictions">0</h2>
+                <span class="trend neutral">Total records</span>
+            </div>
+        </div>
+        <div class="kpi-card glass-card">
+            <div class="kpi-icon"><i class="fa-solid fa-user-slash"></i></div>
+            <div class="kpi-body">
+                <p class="label">Churn Rate</p>
+                <h2 id="kpiChurnRate">0%</h2>
+                <span class="trend danger"><i class="fa-solid fa-arrow-up"></i> Projected</span>
+            </div>
+        </div>
+        <div class="kpi-card glass-card">
+            <div class="kpi-icon"><i class="fa-solid fa-user-check"></i></div>
+            <div class="kpi-body">
+                <p class="label">Retained Customers</p>
+                <h2 id="kpiRetained">0</h2>
+                <span class="trend success">Stable base</span>
+            </div>
+        </div>
+        <div class="kpi-card glass-card">
+            <div class="kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div class="kpi-body">
+                <p class="label">High Risk Customers</p>
+                <h2 id="kpiHighRisk">0</h2>
+                <span class="trend danger">Needs attention</span>
+            </div>
+        </div>
+        <div class="kpi-card glass-card">
+            <div class="kpi-icon"><i class="fa-solid fa-gauge-high"></i></div>
+            <div class="kpi-body">
+                <p class="label">Avg Churn Prob</p>
+                <h2 id="kpiAvgProb">0%</h2>
+                <span class="trend warning">System mean</span>
+            </div>
+        </div>
+        <div class="kpi-card glass-card">
+            <div class="kpi-icon"><i class="fa-solid fa-chart-line"></i></div>
+            <div class="kpi-body">
+                <p class="label">Avg Credit Score</p>
+                <h2 id="kpiAvgCredit">0</h2>
+                <span class="trend neutral">Customer profile</span>
+            </div>
+        </div>
     </div>
 
-    <div class="analyst-grid analyst-grid-top">
-        <article class="info-card glass-subcard">
-            <h3>Churn Risk Distribution</h3>
-            <p class="muted">High, medium, and low risk segmentation based on latest predictions.</p>
-            <div class="analyst-donut-layout">
-                <div id="riskDonutChart" class="analyst-donut" role="img" aria-label="Risk distribution chart"></div>
-                <div id="riskDonutLegend" class="analyst-donut-legend"></div>
+    <!-- Charts Grid Section -->
+    <div class="dash-viz-grid reveal">
+        <!-- Churn Distribution -->
+        <article class="viz-card glass-card">
+            <div class="viz-header">
+                <h3>Churn Distribution</h3>
+                <p class="muted">Ratio of churned vs retained customers.</p>
+            </div>
+            <div class="viz-content">
+                <canvas id="churnDistChart"></canvas>
             </div>
         </article>
 
-        <article class="info-card glass-subcard">
-            <h3>Prediction Trend</h3>
-            <p class="muted">Prediction volume over time with rolling latest activity.</p>
-            <div id="predictionTrendMeta" class="analyst-chart-meta muted">No trend change detected yet.</div>
-            <div class="analyst-line-wrap">
-                <svg id="predictionTrendChart" class="analyst-line-chart" viewBox="0 0 640 240" preserveAspectRatio="none" aria-label="Prediction trend chart"></svg>
+        <!-- Risk Level Analysis -->
+        <article class="viz-card glass-card">
+            <div class="viz-header">
+                <h3>Risk Level Analysis</h3>
+                <p class="muted">Distribution across confidence tiers.</p>
+            </div>
+            <div class="viz-content">
+                <canvas id="riskLevelChart"></canvas>
+            </div>
+        </article>
+
+        <!-- Monthly Prediction Trends -->
+        <article class="viz-card glass-card viz-wide">
+            <div class="viz-header">
+                <h3>Prediction Activity Trends</h3>
+                <p class="muted">Activity volume over time.</p>
+            </div>
+            <div class="viz-content">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </article>
+
+        <!-- Credit Score vs Churn -->
+        <article class="viz-card glass-card">
+            <div class="viz-header">
+                <h3>Credit Score Impact</h3>
+                <p class="muted">Churn probability by score ranges.</p>
+            </div>
+            <div class="viz-content">
+                <canvas id="creditScoreChart"></canvas>
+            </div>
+        </article>
+
+        <!-- Age Group Analysis -->
+        <article class="viz-card glass-card">
+            <div class="viz-header">
+                <h3>Age Group Analysis</h3>
+                <p class="muted">Churn volume across age demographics.</p>
+            </div>
+            <div class="viz-content">
+                <canvas id="ageGroupChart"></canvas>
+            </div>
+        </article>
+
+        <!-- Active Member vs Churn -->
+        <article class="viz-card glass-card">
+            <div class="viz-header">
+                <h3>Member Activity Comparison</h3>
+                <p class="muted">Impact of active status on churn rates.</p>
+            </div>
+            <div class="viz-content">
+                <canvas id="activeMemberChart"></canvas>
+            </div>
+        </article>
+
+        <!-- Credit Card Usage -->
+        <article class="viz-card glass-card">
+            <div class="viz-header">
+                <h3>Credit Card Usage</h3>
+                <p class="muted">Impact of card ownership on retention.</p>
+            </div>
+            <div class="viz-content">
+                <canvas id="creditCardChart"></canvas>
+            </div>
+        </article>
+
+        <!-- Balance vs Churn -->
+        <article class="viz-card glass-card viz-wide">
+            <div class="viz-header">
+                <h3>Balance vs Churn Probability</h3>
+                <p class="muted">Correlation between account balance and risk.</p>
+            </div>
+            <div class="viz-content">
+                <canvas id="balanceChart"></canvas>
             </div>
         </article>
     </div>
 
-    <div class="analyst-grid analyst-grid-middle">
-        <article class="info-card glass-subcard">
-            <h3>Feature Impact Insights</h3>
-            <p class="muted">Relative feature influence on churn risk separation (High vs Low segments).</p>
-            <div id="featureImpactChart" class="analyst-impact-list"></div>
-        </article>
-
-        <article class="info-card glass-subcard">
-            <h3>Churn Probability Simulator</h3>
-            <p class="muted">Estimate churn probability for hypothetical customer profiles.</p>
-
-            <form id="churnSimulatorForm" class="analyst-sim-form">
-                <label>Age<input type="number" id="simAge" min="18" max="100" value="40" required></label>
-                <label>Credit Score<input type="number" id="simCreditScore" min="300" max="900" value="650" required></label>
-                <label>Balance<input type="number" id="simBalance" min="0" step="0.01" value="50000" required></label>
-                <label>Tenure<input type="number" id="simTenure" min="0" max="40" value="5" required></label>
-                <label>Has Credit Card
-                    <select id="simHasCard" required>
-                        <option value="1">Yes</option>
-                        <option value="0">No</option>
-                    </select>
-                </label>
-                <label>Is Active Member
-                    <select id="simIsActive" required>
-                        <option value="1">Yes</option>
-                        <option value="0">No</option>
-                    </select>
-                </label>
-                <label>Estimated Salary<input type="number" id="simSalary" min="0" step="0.01" value="60000" required></label>
-                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-flask"></i> Analyze Churn Risk</button>
+    <!-- Churn Probability Simulator Section -->
+    <div class="dash-simulator-section glass-card reveal">
+        <div class="viz-header">
+            <h3><i class="fa-solid fa-flask"></i> Churn Probability Simulator</h3>
+            <p class="muted">Test hypothetical customer profiles to analyze potential churn risk without affecting live data.</p>
+        </div>
+        <div class="simulator-grid">
+            <form id="simulatorForm" class="simulator-form">
+                <div class="simulator-inputs">
+                    <div class="sim-field">
+                        <label for="simCustomerId">Customer ID</label>
+                        <input type="text" id="simCustomerId" name="CustomerId" placeholder="e.g. C156872" required>
+                    </div>
+                    <div class="sim-field">
+                        <label for="simAge">Customer Age</label>
+                        <input type="number" id="simAge" name="Age" placeholder="e.g. 35" min="18" max="100" required>
+                    </div>
+                    <div class="sim-field">
+                        <label for="simCreditScore">Credit Score</label>
+                        <input type="number" id="simCreditScore" name="CreditScore" placeholder="300-850" min="300" max="900" required>
+                    </div>
+                    <div class="sim-field">
+                        <label for="simBalance">Account Balance</label>
+                        <input type="number" id="simBalance" name="Balance" placeholder="e.g. 50000" min="0" step="0.01" required>
+                    </div>
+                    <div class="sim-field">
+                        <label for="simTenure">Tenure (Years)</label>
+                        <input type="number" id="simTenure" name="Tenure" placeholder="0-40" min="0" max="40" required>
+                    </div>
+                    <div class="sim-field">
+                        <label for="simSalary">Estimated Salary</label>
+                        <input type="number" id="simSalary" name="EstimatedSalary" placeholder="e.g. 75000" min="0" step="0.01" required>
+                    </div>
+                    <div class="sim-field">
+                        <label for="simHasCrCard">Has Credit Card</label>
+                        <select id="simHasCrCard" name="HasCrCard" required>
+                            <option value="1">Yes</option>
+                            <option value="0">No</option>
+                        </select>
+                    </div>
+                    <div class="sim-field">
+                        <label for="simIsActive">Is Active Member</label>
+                        <select id="simIsActive" name="IsActiveMember" required>
+                            <option value="1">Yes</option>
+                            <option value="0">No</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="simulator-actions">
+                    <button type="submit" class="btn btn-primary" id="btnPredictSim">
+                        <span class="btn-text"><i class="fa-solid fa-wand-magic-sparkles"></i> Predict Churn</span>
+                        <span class="btn-loader" style="display: none;"><i class="fa-solid fa-circle-notch fa-spin"></i> Processing...</span>
+                    </button>
+                    <button type="button" class="btn btn-outline" id="btnResetSim"><i class="fa-solid fa-arrow-rotate-left"></i> Reset</button>
+                    <button type="button" class="btn btn-outline" id="btnSaveSim" disabled><i class="fa-solid fa-floppy-disk"></i> Save Prediction</button>
+                </div>
             </form>
 
-            <div class="analyst-sim-result" id="simResultPanel" aria-live="polite">
-                <div class="analyst-sim-head">
-                    <p id="simProbabilityValue" class="analyst-sim-probability">0%</p>
-                    <span id="simRiskBadge" class="badge low">Low Risk</span>
+            <div class="simulator-result" id="simResultCard">
+                <div class="sim-result-empty">
+                    <i class="fa-solid fa-chart-simple"></i>
+                    <p>Enter data and click predict to see results</p>
                 </div>
-                <div class="analyst-progress-track"><span id="simProgressBar" style="width: 0%"></span></div>
-                <div id="simRing" class="analyst-sim-ring" aria-hidden="true"><span id="simRingText">0%</span></div>
-                <p id="simExplanation" class="muted">Run the simulator to see the churn risk interpretation.</p>
+                <div class="sim-result-content" style="display: none;">
+                    <div class="sim-gauge-container">
+                        <div class="sim-gauge">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="gauge-bg" cx="50" cy="50" r="45"></circle>
+                                <circle class="gauge-fill" id="simGaugeFill" cx="50" cy="50" r="45"></circle>
+                            </svg>
+                            <div class="sim-prob-overlay">
+                                <span id="simProbText">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="sim-details">
+                        <div class="sim-detail-row">
+                            <span class="label">Risk Level</span>
+                            <span id="simRiskBadge" class="badge">---</span>
+                        </div>
+                        <div class="sim-detail-row">
+                            <span class="label">Prediction Result</span>
+                            <span id="simPredictionText" class="value">---</span>
+                        </div>
+                        <div class="sim-explanation" id="simExplanation">
+                            Model analysis will appear here.
+                        </div>
+                    </div>
+                </div>
             </div>
-        </article>
+        </div>
     </div>
 
-    <div class="analyst-grid analyst-grid-bottom">
-        <article class="info-card glass-subcard analyst-wide">
-            <h3>Recent Predictions</h3>
-            <p class="muted">Latest prediction records generated by employees and analysts.</p>
-            <div class="table-wrap">
-                <table class="data-table" id="analystRecentTable">
-                    <thead>
-                        <tr>
-                            <th>Customer ID</th>
-                            <th>Credit Score</th>
-                            <th>Balance</th>
-                            <th>Churn Probability</th>
-                            <th>Risk Level</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody id="analystRecentTableBody">
-                        <tr><td colspan="6" class="muted">Loading recent predictions...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </article>
-
-        <article class="info-card glass-subcard analyst-wide">
-            <h3>Risk Alerts</h3>
-            <p class="muted">Automated risk insights from recent prediction and customer behavior patterns.</p>
-            <div id="riskAlertsSummary" class="analyst-chart-meta muted">Monitoring high-risk, prediction spikes, and inactivity.</div>
-            <div id="riskAlertsList" class="analyst-alert-list"></div>
-        </article>
+    <!-- Latest Prediction Records Table -->
+    <div class="dash-table-section glass-card reveal">
+        <div class="viz-header">
+            <h3>Latest Prediction Records</h3>
+            <p class="muted">Real-time activity stream of recent customer churn predictions entered by employees.</p>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table" id="latestPredictionsTable">
+                <thead>
+                    <tr>
+                        <th>CUSTOMER ID</th>
+                        <th>PREDICTION RESULT</th>
+                        <th>RISK SCORE</th>
+                        <th>ENTERED BY</th>
+                        <th>DATE / TIME</th>
+                    </tr>
+                </thead>
+                <tbody id="latestPredictionsBody">
+                    <tr><td colspan="5" class="muted">Initializing activity stream...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </section>
+
+<!-- Data Payload -->
 <script id="analystDashboardData" type="application/json">{{ analyst_analytics_json|safe }}</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 {% endblock %}

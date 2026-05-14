@@ -6,77 +6,75 @@
 <section class="glass-card section-card reveal analyst-report-shell">
     <div class="section-header">
         <div>
-            <h1>Reports</h1>
-            <p class="muted">Analyst reporting table with advanced filtering, sorting, and CSV export.</p>
+            <h1 class="h2">Reports <span id="syncIndicator" class="sync-status active">Live</span></h1>
+            <p class="muted">Enterprise-grade customer churn analysis and prediction reporting system.</p>
+        </div>
+        <div id="syncLoader" class="sync-loader" style="display: none;">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Syncing...
         </div>
     </div>
 
-    <form id="analystFilterForm" class="analyst-filter-panel" novalidate>
-        <div class="analyst-filter-grid">
-            <label class="analyst-filter-field"><span>Customer ID</span><input type="text" id="filterCustomerId" placeholder="Search customer ID" /></label>
-            <label class="analyst-filter-field"><span>Credit Score Min</span><input type="number" id="filterCreditMin" min="0" /></label>
-            <label class="analyst-filter-field"><span>Credit Score Max</span><input type="number" id="filterCreditMax" min="0" /></label>
-            <label class="analyst-filter-field"><span>Age Min</span><input type="number" id="filterAgeMin" min="0" /></label>
-            <label class="analyst-filter-field"><span>Age Max</span><input type="number" id="filterAgeMax" min="0" /></label>
-            <label class="analyst-filter-field"><span>Tenure Min</span><input type="number" id="filterTenureMin" min="0" /></label>
-            <label class="analyst-filter-field"><span>Tenure Max</span><input type="number" id="filterTenureMax" min="0" /></label>
-            <label class="analyst-filter-field"><span>Balance Min</span><input type="number" id="filterBalanceMin" min="0" step="0.01" /></label>
-            <label class="analyst-filter-field"><span>Balance Max</span><input type="number" id="filterBalanceMax" min="0" step="0.01" /></label>
-            <label class="analyst-filter-field"><span>Salary Min</span><input type="number" id="filterSalaryMin" min="0" step="0.01" /></label>
-            <label class="analyst-filter-field"><span>Salary Max</span><input type="number" id="filterSalaryMax" min="0" step="0.01" /></label>
-            <label class="analyst-filter-field"><span>Has Credit Card</span><select id="filterHasCard"><option value="">Any</option><option value="yes">Yes</option><option value="no">No</option></select></label>
-            <label class="analyst-filter-field"><span>Is Active Member</span><select id="filterActive"><option value="">Any</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
-            <label class="analyst-filter-field"><span>Risk Level</span><select id="filterRiskLevel"><option value="">Any</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></label>
-            <label class="analyst-filter-field"><span>Prediction Result</span><select id="filterPrediction"><option value="">Any</option><option value="churn">Customer Will Churn</option><option value="stay">Customer Will Stay</option></select></label>
-            <label class="analyst-filter-field"><span>Probability Min (%)</span><input type="number" id="filterProbabilityMin" min="0" max="100" step="0.01" /></label>
-            <label class="analyst-filter-field"><span>Probability Max (%)</span><input type="number" id="filterProbabilityMax" min="0" max="100" step="0.01" /></label>
-        </div>
 
-        <div class="analyst-filter-actions">
-            <label class="analyst-filter-field compact"><span>Sort By</span><select id="sortBy"><option value="customerId">Customer ID</option><option value="creditScore">Credit Score</option><option value="age">Age</option><option value="tenure">Tenure</option><option value="balance">Balance</option><option value="estimatedSalary">Estimated Salary</option><option value="numOfProducts">Number of Products</option><option value="probability">Probability</option><option value="riskLevel">Risk Level</option></select></label>
-            <label class="analyst-filter-field compact"><span>Sort Order</span><select id="sortOrder"><option value="desc">Descending</option><option value="asc">Ascending</option></select></label>
-            <label class="analyst-filter-field compact"><span>Rows / Page</span><select id="rowsPerPage"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option></select></label>
-            <div class="analyst-action-buttons">
-                <button class="btn btn-primary btn-sm" id="applyFiltersBtn" type="submit"><i class="fa-solid fa-filter"></i> Apply Filters</button>
-                <button class="btn btn-outline btn-sm" id="clearFiltersBtn" type="button"><i class="fa-solid fa-eraser"></i> Clear Filters</button>
-                <button class="btn btn-outline btn-sm" id="exportAnalystCsvBtn" type="button"><i class="fa-solid fa-file-export"></i> Export CSV</button>
+
+    <div class="report-header reveal">
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="filterCustomerId" placeholder="Search Customer ID...">
             </div>
+            <button class="btn btn-outline btn-sm" id="exportAnalystCsvBtn" type="button"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+            <button class="btn btn-outline btn-sm" id="exportAnalystExcelBtn" type="button"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
+            <button class="btn btn-outline btn-sm" id="exportAnalystPdfBtn" type="button"><i class="fa-solid fa-file-pdf"></i> Export PDF</button>
         </div>
-    </form>
+        <div style="display: flex; gap: 16px; align-items: center;">
+            <label class="rows-per-page"><span>Show</span><select id="rowsPerPage"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option></select></label>
+        </div>
+    </div>
 
-    <div class="table-wrap analyst-table-wrap">
-        <table id="analystReportTable" class="data-table analyst-data-table">
+    <div class="report-table-wrapper reveal">
+        <div class="table-loading-overlay" id="tableLoadingOverlay">
+            <div class="spinner"></div>
+        </div>
+        <table id="analystReportTable" class="enterprise-table">
             <thead>
                 <tr>
-                    <th>Date</th>
-                    <th>Customer ID</th>
-                    <th>Credit Score</th>
-                    <th>Age</th>
-                    <th>Tenure</th>
-                    <th>Balance</th>
-                    <th>Number of Products</th>
-                    <th>Has Credit Card</th>
-                    <th>Is Active Member</th>
-                    <th>Estimated Salary</th>
-                    <th>Prediction</th>
-                    <th>Probability</th>
-                    <th>Risk Level</th>
+                    <th style="cursor: pointer;" data-sort="date">Date <i class="fa-solid fa-sort"></i></th>
+                    <th style="cursor: pointer;" data-sort="customerId">Customer ID <i class="fa-solid fa-sort"></i></th>
+                    <th style="cursor: pointer;" data-sort="creditScore">Credit Score <i class="fa-solid fa-sort"></i></th>
+                    <th style="cursor: pointer;" data-sort="age">Age <i class="fa-solid fa-sort"></i></th>
+                    <th style="cursor: pointer;" data-sort="tenure">Tenure <i class="fa-solid fa-sort"></i></th>
+                    <th style="cursor: pointer;" data-sort="balance">Balance <i class="fa-solid fa-sort"></i></th>
+                    <th style="cursor: pointer;" data-sort="estimatedSalary">Salary <i class="fa-solid fa-sort"></i></th>
+                    <th>Card</th>
+                    <th>Active</th>
+                    <th style="cursor: pointer;" data-sort="prediction">Result <i class="fa-solid fa-sort"></i></th>
+                    <th style="cursor: pointer;" data-sort="probability">Prob. % <i class="fa-solid fa-sort"></i></th>
+                    <th style="cursor: pointer;" data-sort="riskLevel">Risk <i class="fa-solid fa-sort"></i></th>
+                    <th>Submitting User</th>
                 </tr>
             </thead>
             <tbody id="analystReportBody"></tbody>
         </table>
     </div>
 
-    <div id="analystReportEmpty" class="history-empty">
-        <p>No prediction records match the selected filters.</p>
+    <div id="analystReportEmpty" class="history-empty" style="display: none;">
+        <i class="fa-solid fa-database" style="font-size: 32px; opacity: 0.3; margin-bottom: 12px;"></i>
+        <p>No prediction records available.</p>
     </div>
 
-    <div class="analyst-pagination" id="analystPagination">
-        <button class="btn btn-outline btn-sm" id="analystPrevPage" type="button">Previous</button>
-        <p id="analystPageInfo" class="muted">Page 1 of 1</p>
-        <button class="btn btn-outline btn-sm" id="analystNextPage" type="button">Next</button>
+    <div class="report-footer reveal">
+        <p id="analystPageInfo" class="page-info">Page 1 of 1</p>
+        <div class="pagination-controls">
+            <button class="btn btn-outline btn-sm" id="analystPrevPage" type="button"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+            <button class="btn btn-outline btn-sm" id="analystNextPage" type="button">Next <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
     </div>
 </section>
 
 <script id="analystReportData" type="application/json">{{ rows|tojson|safe }}</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 {% endblock %}

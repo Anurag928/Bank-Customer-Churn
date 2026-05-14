@@ -18,6 +18,9 @@
     </div>
 
     <div class="landing-nav__actions">
+        <button type="button" class="theme-toggle landing-theme-toggle" id="themeToggle" aria-label="Toggle color theme">
+            <i class="fa-solid fa-sun" data-theme-icon></i>
+        </button>
         <a class="nav-link-btn" href="{{ url_for('signin') }}">Login</a>
         <a class="nav-link-btn nav-link-btn--primary" href="{{ url_for('signup') }}">Sign Up</a>
         <a class="nav-link-btn" href="{{ url_for('admin_login') }}">Admin Login</a>
@@ -33,6 +36,12 @@
         <a href="{{ url_for('signin') }}">Login</a>
         <a href="{{ url_for('signup') }}">Sign Up</a>
         <a href="{{ url_for('admin_login') }}">Admin Login</a>
+        <div class="mobile-nav-panel__footer">
+            <button type="button" class="theme-toggle" data-theme-toggle aria-label="Toggle theme">
+                <i class="fa-solid fa-sun" data-theme-icon></i>
+                <span>Switch Theme</span>
+            </button>
+        </div>
     </div>
 </nav>
 
@@ -137,7 +146,4 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
-    document.documentElement.setAttribute("data-theme", "light");
-</script>
 {% endblock %}

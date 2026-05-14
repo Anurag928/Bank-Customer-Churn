@@ -249,6 +249,7 @@ try:
     users_collection.create_index("official_id", unique=True, sparse=True)
     users_collection.create_index("reset_token_hash", unique=True, sparse=True)
     predictions_collection.create_index([("user_id", -1), ("created_at", -1)])
+    predictions_collection.create_index([("created_at", -1)])
 except Exception as index_error:
     app.logger.warning("Mongo index setup skipped: %s", index_error)
 
@@ -1599,7 +1600,8 @@ def _compute_analyst_dashboard_analytics() -> Dict[str, Any]:
             return "Medium"
         return "Low"
 
-    docs = list(predictions_collection.find({}).sort("created_at", -1).limit(3000))
+    # Use all prediction data from the shared collection (limited to a very high number for performance safety)
+    docs = list(predictions_collection.find({}).sort("created_at", -1).limit(50000))
 
     total_predictions = len(docs)
     predictions_today = 0
@@ -1665,7 +1667,9 @@ def _compute_analyst_dashboard_analytics() -> Dict[str, Any]:
                 "CreditScore": float(row.get("CreditScore") or 0),
                 "Balance": float(row.get("Balance") or 0),
                 "probability": float(row.get("probability") or 0),
-                "risk_level": _risk_from_row(float(row.get("probability") or 0), row.get("risk_level")),
+                "risk_level": row.get("risk_level", "Low"),
+                "prediction": row.get("prediction", "-"),
+                "entered_by": row.get("entered_by") or "-",
                 "date": row.get("date", ""),
                 "date_display": row.get("date_display", "-"),
             }
@@ -1754,6 +1758,77 @@ def _compute_analyst_dashboard_analytics() -> Dict[str, Any]:
         },
     ]
 
+    # Age Group Analysis
+    age_groups = {"18-25": 0, "26-35": 0, "36-45": 0, "46-60": 0, "60+": 0}
+    churn_by_age = {"18-25": 0, "26-35": 0, "36-45": 0, "46-60": 0, "60+": 0}
+
+    # Behavior Analysis
+    churn_by_activity = {"Active": {"churn": 0, "stay": 0}, "Inactive": {"churn": 0, "stay": 0}}
+    churn_by_credit_card = {"With Card": {"churn": 0, "stay": 0}, "Without Card": {"churn": 0, "stay": 0}}
+
+    # Credit Score bins
+    credit_score_bins = {"300-500": {"count": 0, "churn_prob_sum": 0.0}, "501-650": {"count": 0, "churn_prob_sum": 0.0}, "651-750": {"count": 0, "churn_prob_sum": 0.0}, "751-900": {"count": 0, "churn_prob_sum": 0.0}}
+
+    # Churn vs Retained
+    churn_status = {"Churned": 0, "Retained": 0}
+
+    all_raw_data = []
+
+    for doc in docs:
+        probability = float(doc.get("probability") or 0.0)
+        risk_level = _risk_from_row(probability, doc.get("risk_level"))
+        is_churn = probability >= 50.0 # Standard threshold for statistics
+        is_active = int(float(doc.get("IsActiveMember") or 0)) == 1
+        has_card = int(float(doc.get("HasCrCard") or 0)) == 1
+        age = float(doc.get("Age") or 0)
+        credit_score = float(doc.get("CreditScore") or 0)
+
+        if is_churn:
+            churn_status["Churned"] += 1
+        else:
+            churn_status["Retained"] += 1
+
+        # Age binning
+        if age <= 25: bin_key = "18-25"
+        elif age <= 35: bin_key = "26-35"
+        elif age <= 45: bin_key = "36-45"
+        elif age <= 60: bin_key = "46-60"
+        else: bin_key = "60+"
+        age_groups[bin_key] += 1
+        if is_churn: churn_by_age[bin_key] += 1
+
+        # Activity Comparison
+        act_key = "Active" if is_active else "Inactive"
+        if is_churn: churn_by_activity[act_key]["churn"] += 1
+        else: churn_by_activity[act_key]["stay"] += 1
+
+        # CC Comparison
+        cc_key = "With Card" if has_card else "Without Card"
+        if is_churn: churn_by_credit_card[cc_key]["churn"] += 1
+        else: churn_by_credit_card[cc_key]["stay"] += 1
+
+        # Credit Score binning
+        if credit_score <= 500: cs_key = "300-500"
+        elif credit_score <= 650: cs_key = "501-650"
+        elif credit_score <= 750: cs_key = "651-750"
+        else: cs_key = "751-900"
+        credit_score_bins[cs_key]["count"] += 1
+        credit_score_bins[cs_key]["churn_prob_sum"] += probability
+
+        # Prepare raw data for client-side filters
+        all_raw_data.append(serialize_prediction(doc))
+
+    # Calculate average churn probability per credit score bin
+    credit_score_analysis = []
+    for k, v in credit_score_bins.items():
+        credit_score_analysis.append({
+            "range": k,
+            "avg_probability": round(v["churn_prob_sum"] / v["count"], 2) if v["count"] > 0 else 0
+        })
+
+    churn_rate = round((churn_status["Churned"] / total_predictions * 100), 2) if total_predictions > 0 else 0
+    avg_credit_score = _safe_mean(feature_values["Credit Score"]["all"])
+
     return {
         "generated_at": now.isoformat(),
         "kpis": {
@@ -1762,13 +1837,26 @@ def _compute_analyst_dashboard_analytics() -> Dict[str, Any]:
             "high_risk": risk_counts["High"],
             "medium_risk": risk_counts["Medium"],
             "low_risk": risk_counts["Low"],
+            "retained_customers": churn_status["Retained"],
+            "churn_rate_percent": churn_rate,
+            "average_credit_score": round(avg_credit_score, 1),
             "average_probability": average_probability,
         },
         "risk_distribution": risk_counts,
+        "churn_distribution": churn_status,
+        "age_analysis": {
+            "distribution": age_groups,
+            "churn_by_group": churn_by_age
+        },
+        "credit_score_analysis": credit_score_analysis,
+        "behavior_analysis": {
+            "by_activity": churn_by_activity,
+            "by_credit_card": churn_by_credit_card
+        },
         "trend_points": trend_points,
         "feature_impacts": feature_impacts[:6],
-        "recent_predictions": recent_rows[:10],
         "risk_alerts": risk_alerts,
+        "all_data": all_raw_data, # For client-side filtering
         "meta": {
             "high_risk_change_24h": high_change,
             "prediction_change_24h": prediction_change,
@@ -1941,7 +2029,7 @@ def analyst_dashboard_data():
 @role_required(ROLE_ANALYST)
 def analyst_simulate():
     payload = request.get_json(silent=True) or {}
-    required_fields = {
+    required_fields: Dict[str, Tuple[Optional[float], Optional[float]]] = {
         "Age": (18, 100),
         "CreditScore": (300, 900),
         "Balance": (0, None),
@@ -1970,6 +2058,9 @@ def analyst_simulate():
         if field in {"HasCrCard", "IsActiveMember"}:
             value = 1.0 if int(value) == 1 else 0.0
         parsed[field] = value
+    
+    # Use default for NumOfProducts since it's removed from form
+    parsed["NumOfProducts"] = float(payload.get("NumOfProducts", 1.0))
 
     try:
         probability_percent, base_probability_percent, prediction_raw = predict_probability_percent(parsed)
@@ -1997,6 +2088,66 @@ def analyst_simulate():
     except Exception as error:
         app.logger.warning("Analyst simulator failed: %s", error)
         return jsonify({"error": "Unable to run churn simulator right now."}), 500
+
+@app.post("/analyst/save-simulation")
+@role_required(ROLE_ANALYST)
+def analyst_save_simulation():
+    payload = request.get_json(silent=True) or {}
+    customer_id = payload.get("CustomerId", "SIM-" + secrets.token_hex(4).upper())
+    
+    try:
+        parsed = {
+            "Age": float(payload.get("Age", 0)),
+            "CreditScore": float(payload.get("CreditScore", 0)),
+            "Balance": float(payload.get("Balance", 0)),
+            "Tenure": float(payload.get("Tenure", 0)),
+            "HasCrCard": 1.0 if str(payload.get("HasCrCard")) == "1" else 0.0,
+            "IsActiveMember": 1.0 if str(payload.get("IsActiveMember")) == "1" else 0.0,
+            "EstimatedSalary": float(payload.get("EstimatedSalary", 0)),
+            "NumOfProducts": float(payload.get("NumOfProducts", 1.0))
+        }
+        
+        probability_percent, base_probability_percent, prediction_raw = predict_probability_percent(parsed)
+        probability_value = probability_percent / 100
+        risk_level = risk_level_from_probability(probability_value)
+        guidance = build_retention_guidance(parsed, probability_percent, prediction_raw)
+        prediction_text = "Customer Will Churn" if prediction_raw == 1 else "Customer Will Stay"
+
+        prediction_doc = {
+            "user_id": current_user.id,
+            "email": current_user.email,
+            "entered_by": current_user.username,
+            "predictor_role": current_user.role,
+            "predictor_official_id": current_user.official_id,
+            "created_at": now_utc(),
+            "CustomerId": customer_id,
+            "ClientId": customer_id,
+            **parsed,
+            "prediction": prediction_text,
+            "probability": probability_percent,
+            "risk_level": risk_level,
+            "base_probability": base_probability_percent,
+            "reasons": guidance["reasons"],
+            "actions": guidance["actions"],
+            "is_simulation": True
+        }
+        predictions_collection.insert_one(prediction_doc)
+        
+        write_csv_log({
+            "date": prediction_doc["created_at"].isoformat(),
+            "email": current_user.email,
+            "entered_by": current_user.username,
+            "CustomerId": customer_id,
+            **parsed,
+            "prediction": prediction_text,
+            "probability": probability_percent,
+            "risk_level": risk_level
+        })
+
+        return jsonify({"success": True})
+    except Exception as e:
+        app.logger.error("Save simulation failed: %s", e)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/predict", methods=["GET", "POST"])
@@ -2097,21 +2248,110 @@ def my_predictions():
 @app.route("/analyst/prediction-analysis")
 @role_required(ROLE_ANALYST)
 def prediction_analysis():
-    rows = _serialize_prediction_cursor(predictions_collection.find({}).sort("created_at", -1).limit(300))
-    return render_template("analyst_analysis.html", show_nav=True, rows=rows)
+    query = {}
+    
+    # Text filters
+    customer_id = request.args.get("customerId", "").strip()
+    if customer_id:
+        query["CustomerId"] = {"$regex": customer_id, "$options": "i"}
+        
+    # Range filters helper
+    def add_range_query(field, min_val, max_val):
+        if min_val or max_val:
+            query[field] = {}
+            if min_val:
+                try: query[field]["$gte"] = float(min_val)
+                except ValueError: pass
+            if max_val:
+                try: query[field]["$lte"] = float(max_val)
+                except ValueError: pass
+
+    add_range_query("CreditScore", request.args.get("creditMin"), request.args.get("creditMax"))
+    add_range_query("Age", request.args.get("ageMin"), request.args.get("ageMax"))
+    add_range_query("Tenure", request.args.get("tenureMin"), request.args.get("tenureMax"))
+    add_range_query("Balance", request.args.get("balanceMin"), request.args.get("balanceMax"))
+    add_range_query("EstimatedSalary", request.args.get("salaryMin"), request.args.get("salaryMax"))
+    add_range_query("probability", request.args.get("probMin"), request.args.get("probMax"))
+
+    # Dropdown filters
+    has_card = request.args.get("hasCard")
+    if has_card in ["yes", "no"]:
+        query["HasCrCard"] = 1.0 if has_card == "yes" else 0.0
+        
+    active = request.args.get("active")
+    if active in ["active", "inactive"]:
+        query["IsActiveMember"] = 1.0 if active == "active" else 0.0
+        
+    risk = request.args.get("riskLevel")
+    if risk:
+        query["risk_level"] = risk
+        
+    prediction = request.args.get("prediction")
+    if prediction:
+        if prediction == "churn":
+            query["prediction"] = {"$regex": "churn", "$options": "i"}
+        else:
+            query["prediction"] = {"$regex": "stay|retained", "$options": "i"}
+
+    # Sorting
+    sort_by = request.args.get("sortBy", "created_at")
+    sort_order = -1 if request.args.get("sortOrder", "desc") == "desc" else 1
+    
+    db_sort_map = {
+        "customerId": "CustomerId",
+        "creditScore": "CreditScore",
+        "age": "Age",
+        "tenure": "Tenure",
+        "balance": "Balance",
+        "estimatedSalary": "EstimatedSalary",
+        "numOfProducts": "NumOfProducts",
+        "probability": "probability",
+        "riskLevel": "probability", # Sort risk level by probability
+        "date": "created_at"
+    }
+    db_sort_field = db_sort_map.get(sort_by, "created_at")
+
+    # Pagination
+    try:
+        page = int(request.args.get("page", 1))
+        rows_per_page = int(request.args.get("rowsPerPage", 25))
+    except ValueError:
+        page = 1
+        rows_per_page = 25
+
+    total_count = predictions_collection.count_documents(query)
+    cursor = predictions_collection.find(query).sort(db_sort_field, sort_order).skip((page - 1) * rows_per_page).limit(rows_per_page)
+    rows = _serialize_prediction_cursor(cursor)
+
+    # Return JSON for AJAX requests
+    if request.args.get("ajax") == "1":
+        import math
+        return jsonify({
+            "rows": rows,
+            "total_count": total_count,
+            "page": page,
+            "total_pages": math.ceil(total_count / rows_per_page) if rows_per_page > 0 else 1
+        })
+
+    return render_template("analyst_analysis.html", show_nav=True, rows=rows, total_count=total_count)
+
 
 
 @app.route("/analyst/reports")
 @role_required(ROLE_ANALYST)
 def analyst_reports():
-    rows = _serialize_prediction_cursor(predictions_collection.find({}).sort("created_at", -1).limit(300))
-    high = [r for r in rows if float(r.get("probability") or 0) >= 70]
-    report_data = {
-        "total_predictions": len(rows),
-        "high_risk_predictions": len(high),
-        "low_risk_predictions": len(rows) - len(high),
+    # Reports page shows all data. Client-side JS will handle pagination and fetching via prediction-analysis route.
+    # Initial load of 50 records to show something immediately.
+    cursor = predictions_collection.find({}).sort("created_at", -1).limit(50)
+    rows = _serialize_prediction_cursor(cursor)
+    
+    # Summary stats for the report header/cards if needed
+    stats = {
+        "total": predictions_collection.count_documents({}),
+        "high_risk": predictions_collection.count_documents({"risk_level": "High"})
     }
-    return render_template("analyst_reports.html", show_nav=True, report_data=report_data, rows=rows[:30])
+    
+    return render_template("analyst_reports.html", show_nav=True, rows=rows, stats=stats)
 
 
 @app.route("/profile", methods=["GET", "POST"])
