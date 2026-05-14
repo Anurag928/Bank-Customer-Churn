@@ -8,6 +8,8 @@ import re
 import secrets
 import subprocess
 import sys
+import math
+import traceback
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any, Dict, Optional
@@ -616,9 +618,7 @@ def parse_num_of_products(form_data) -> float:
 
 def predict_probability_percent(payload: Dict[str, float]) -> tuple[float, float, int]:
     if model is None:
-        load_model()
-    if model is None:
-        raise ValueError("Model not available. Please run training first.")
+        raise ValueError("ML model not loaded. Check startup logs.")
 
     input_data = [[payload[k] for k in REQUIRED_FEATURES]]
     prediction_raw = int(model.predict(input_data)[0])
@@ -773,29 +773,15 @@ def write_csv_log(row: Dict[str, Any]) -> None:
 
     try:
         file_exists = os.path.exists(CSV_LOG_PATH) and os.path.getsize(CSV_LOG_PATH) > 0
-        existing_rows = []
-        existing_header = []
-
-        if file_exists:
-            with open(CSV_LOG_PATH, "r", newline="", encoding="utf-8") as csv_file:
-                reader = csv.DictReader(csv_file)
-                existing_header = reader.fieldnames or []
-                existing_rows = [normalize_csv_row(item) for item in reader]
-
         normalized_new_row = normalize_csv_row(row)
-        schema_changed = existing_header != fieldnames
 
-        if not file_exists or schema_changed:
-            with open(CSV_LOG_PATH, "w", newline="", encoding="utf-8") as csv_file:
-                writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        # Open in append mode to avoid loading existing rows into memory
+        mode = "a" if file_exists else "w"
+        with open(CSV_LOG_PATH, mode, newline="", encoding="utf-8") as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            if not file_exists:
                 writer.writeheader()
-                if existing_rows:
-                    writer.writerows(existing_rows)
-                writer.writerow(normalized_new_row)
-        else:
-            with open(CSV_LOG_PATH, "a", newline="", encoding="utf-8") as csv_file:
-                writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-                writer.writerow(normalized_new_row)
+            writer.writerow(normalized_new_row)
     except Exception as error:
         app.logger.warning("CSV logging skipped: %s", error)
 
@@ -1270,7 +1256,8 @@ def _compute_admin_analytics() -> Dict[str, Any]:
         return "Low"
 
     user_docs = list(users_collection.find({"role": {"$in": [ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_ANALYST]}}))
-    prediction_docs = list(predictions_collection.find({}).sort("created_at", -1).limit(3000))
+    # Reduced limit to prevent OOM on deployment
+    prediction_docs = list(predictions_collection.find({}).sort("created_at", -1).limit(1000))
 
     total_registered = len(user_docs)
     status_counts = {"approved": 0, "pending": 0, "rejected": 0}
@@ -1624,8 +1611,8 @@ def _compute_analyst_dashboard_analytics() -> Dict[str, Any]:
             return "Medium"
         return "Low"
 
-    # Use all prediction data from the shared collection (limited to a very high number for performance safety)
-    docs = list(predictions_collection.find({}).sort("created_at", -1).limit(50000))
+    # Reduced limit significantly (from 50k) to prevent SIGKILL on Render free tier
+    docs = list(predictions_collection.find({}).sort("created_at", -1).limit(2000))
 
     total_predictions = len(docs)
     predictions_today = 0
@@ -2181,9 +2168,7 @@ def predict():
 
     if request.method == "POST":
         if model is None:
-            load_model()
-        if model is None:
-            flash("Model not found. Run training script first.", "error")
+            flash("System is initializing. Please try again in a moment.", "warning")
             prediction_count = predictions_collection.count_documents({"user_id": current_user.id})
             return render_template("predict.html", show_nav=True, result=None, prediction_count=prediction_count)
 
@@ -2349,7 +2334,6 @@ def prediction_analysis():
 
     # Return JSON for AJAX requests
     if request.args.get("ajax") == "1":
-        import math
         return jsonify({
             "rows": rows,
             "total_count": total_count,
