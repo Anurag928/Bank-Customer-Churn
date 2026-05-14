@@ -225,6 +225,24 @@ for error_class in MongoConnectionErrors:
     app.register_error_handler(error_class, _mongo_error_response)
 
 
+@app.errorhandler(500)
+def handle_internal_server_error(error):
+    """Global error handler for internal server errors to log tracebacks in production."""
+    app.logger.error("Internal Server Error: %s", error)
+    try:
+        import traceback
+        app.logger.error("Traceback:\n%s", traceback.format_exc())
+    except Exception:
+        pass
+    
+    # Return a user-friendly message if possible, or fall back to a simple render
+    if request.path.startswith("/api/"):
+        return jsonify({"success": False, "error": "Internal Server Error"}), 500
+        
+    flash("An unexpected error occurred. Please try again later.", "error")
+    return render_template("signin.html", show_nav=False), 500
+
+
 certifi_module = _optional_module("certifi")
 mongo_kwargs = {
     # Keep UI responsive when Mongo is down or blocked by network/TLS issues.
@@ -952,16 +970,22 @@ def signup():
             flash("Unable to create account right now. Please try again.", "error")
             return render_template("signup.html", show_nav=False)
 
-        notify_admin_new_signup(
-            mail=mail,
-            admin_email=ADMIN_EMAIL,
-            username=username,
-            user_email=email,
-            role=role,
-            request_time=request_timestamp,
-            review_link=url_for("approval_requests", _external=True),
-        )
+        app.logger.info("Signup request submitted for: %s (%s)", email, official_id)
 
+        try:
+            notify_admin_new_signup(
+                mail=mail,
+                admin_email=ADMIN_EMAIL,
+                username=username,
+                user_email=email,
+                role=role,
+                request_time=request_timestamp,
+                review_link=url_for("approval_requests", _external=True),
+            )
+        except Exception as mail_err:
+            app.logger.warning("Failed to send admin notification for signup (%s): %s", email, mail_err)
+
+        app.logger.info("Redirecting %s to request-submitted success page", email)
         return redirect(url_for("request_submitted"))
 
     return render_template("signup.html", show_nav=False)

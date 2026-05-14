@@ -70,7 +70,9 @@ def send_notification_email(
 
     try:
         message = Message(subject=subject, recipients=recipient_list, body=body, html=html)
+        current_app.logger.info("Attempting to send email: subject='%s', recipients=%s", subject, recipient_list)
         mail.send(message)
+        current_app.logger.info("Email sent successfully: subject='%s'", subject)
         return True
     except Exception as error:
         current_app.logger.warning("Email send failed for '%s': %s", subject, error)
@@ -131,6 +133,7 @@ def notify_admin_new_signup(
         ),
     )
 
+    current_app.logger.info("Building signup notification for admin: %s (new user: %s)", admin_email, user_email)
     return send_notification_email(
         mail=mail,
         subject="Action Needed: Review New User Access Request",
