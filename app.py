@@ -958,18 +958,18 @@ def signup():
 
         app.logger.info("Signup request submitted for: %s (%s)", email, official_id)
 
-        try:
-            notify_admin_new_signup(
-                mail=mail,
-                admin_email=ADMIN_EMAIL,
-                username=username,
-                user_email=email,
-                role=role,
-                request_time=request_timestamp,
-                review_link=url_for("approval_requests", _external=True),
-            )
-        except Exception as mail_err:
-            app.logger.warning("Failed to send admin notification for signup (%s): %s", email, mail_err)
+        # try:
+        #     notify_admin_new_signup(
+        #         mail=mail,
+        #         admin_email=ADMIN_EMAIL,
+        #         username=username,
+        #         user_email=email,
+        #         role=role,
+        #         request_time=request_timestamp,
+        #         review_link=url_for("approval_requests", _external=True),
+        #     )
+        # except Exception as mail_err:
+        #     app.logger.warning("Failed to send admin notification for signup (%s): %s", email, mail_err)
 
         app.logger.info("Redirecting %s to request-submitted success page", email)
         return redirect(url_for("request_submitted"))
