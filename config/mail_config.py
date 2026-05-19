@@ -15,6 +15,7 @@ def build_mail_settings() -> Dict[str, Any]:
         "MAIL_PASSWORD": (os.getenv("MAIL_PASSWORD") or "").strip(),
         "MAIL_DEFAULT_SENDER": mail_default_sender,
         "MAIL_SUPPRESS_SEND": (os.getenv("MAIL_SUPPRESS_SEND", "false").strip().lower() == "true"),
+        "MAIL_TIMEOUT": int(os.getenv("MAIL_TIMEOUT", "20")),
     }
 
 

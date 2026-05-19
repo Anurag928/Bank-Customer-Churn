@@ -72,9 +72,11 @@ def send_notification_email(
         message = Message(subject=subject, recipients=recipient_list, body=body, html=html)
         current_app.logger.info("Attempting to send email: subject='%s', recipients=%s", subject, recipient_list)
         mail.send(message)
+        print("Mail sent successfully")
         current_app.logger.info("Email sent successfully: subject='%s'", subject)
         return True
     except Exception as error:
+        print("MAIL ERROR:", error)
         current_app.logger.warning("Email send failed for '%s': %s", subject, error)
         return False
 
