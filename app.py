@@ -8,6 +8,7 @@ import re
 import secrets
 import subprocess
 import sys
+import threading
 import math
 import traceback
 from datetime import datetime, timedelta
@@ -958,18 +959,27 @@ def signup():
 
         app.logger.info("Signup request submitted for: %s (%s)", email, official_id)
 
-        # try:
-        #     notify_admin_new_signup(
-        #         mail=mail,
-        #         admin_email=ADMIN_EMAIL,
-        #         username=username,
-        #         user_email=email,
-        #         role=role,
-        #         request_time=request_timestamp,
-        #         review_link=url_for("approval_requests", _external=True),
-        #     )
-        # except Exception as mail_err:
-        #     app.logger.warning("Failed to send admin notification for signup (%s): %s", email, mail_err)
+        review_url = url_for("approval_requests", _external=True)
+
+        def send_async_email(app_instance, mail_obj, review_url_val, user_email, username_val, role_val, request_ts):
+            with app_instance.app_context():
+                try:
+                    notify_admin_new_signup(
+                        mail=mail_obj,
+                        admin_email=ADMIN_EMAIL,
+                        username=username_val,
+                        user_email=user_email,
+                        role=role_val,
+                        request_time=request_ts,
+                        review_link=review_url_val,
+                    )
+                except Exception as mail_err:
+                    app_instance.logger.warning("Failed to send admin notification for signup (%s): %s", user_email, mail_err)
+
+        threading.Thread(
+            target=send_async_email,
+            args=(app, mail, review_url, email, username, role, request_timestamp)
+        ).start()
 
         app.logger.info("Redirecting %s to request-submitted success page", email)
         return redirect(url_for("request_submitted"))
